@@ -172,7 +172,7 @@ label {
   margin: 5px 0;
   color: var(--custom-color-secondary);
   font-size: 0.8rem;
-  text-transform: uppercase;
+  /* text-transform: uppercase; */
 }
 
 input {
@@ -248,7 +248,7 @@ button,
   cursor: pointer;
   text-align: center;
   font-size: 0.9rem;
-  text-transform: uppercase;
+  /* text-transform: uppercase; */
 }
 
 button.primary,
