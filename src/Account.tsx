@@ -75,6 +75,12 @@ const Account: Component<Props> = ({ session }) => {
 		}
 	}
 
+  const generateImage = async() => {
+    const { data, error } = await supabase.functions.invoke('diffuse', {
+      body: JSON.stringify({prompt: 'A clockwork skyscraper overgrown with plants'})
+    });
+  }
+
 	return (
 		<div aria-live="polite">
 			<form onSubmit={updateProfile} class="form-widget">
@@ -112,6 +118,9 @@ const Account: Component<Props> = ({ session }) => {
 				</div>
 				<button type="button" class="button block" onClick={() => supabase.auth.signOut()}>
 					Sign Out
+				</button>
+        <button type="button" class="button block" onClick={() => generateImage()}>
+					GENERATE
 				</button>
 			</form>
 		</div>
