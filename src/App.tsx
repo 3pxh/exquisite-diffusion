@@ -20,12 +20,22 @@ enum GameState {
   AwaitingImages, // Host
   DoneCreating,
   CaptioningImages,
-  Scoring
+  AwaitingCaptions,
+  DoneCaptioning,
+  VotingCaptions,
+  AwaitingVotes,
+  DoneVoting,
+  Scoring,
+  Finished
 }
 
 interface ImageData {
   handle: string,
   url: string
+}
+interface CaptionData {
+  handle: string,
+  caption: string
 }
 
 const App: Component = () => {
@@ -38,7 +48,10 @@ const App: Component = () => {
   const [errorMessage, setErrorMessage] = createSignal<string | null>(null)
   const [players, setPlayers] = createSignal<string[]>([])
   const [images, setImages] = createSignal<ImageData[]>([])
+  const [captions, setCaptions] = createSignal<CaptionData[]>([])
   const [drawPrompt, setDrawPrompt] = createSignal<string | null>(null)
+  const [captionImages, setCaptionImages] = createSignal<ImageData[]>([])
+  const [votes, setVotes] = createSignal<string[]>([])
 
 	createEffect(() => {
 		supabase.auth.getSession().then(({ data: { session } }) => {
@@ -130,6 +143,54 @@ const App: Component = () => {
           setDrawPrompt(myPrompt.prompt);
         } else if (msg.type === "GeneratedImage" && gameRole() === GameRole.Host) {
           setImages(images().concat(msg));
+          if (images().length === players().length) {
+            setCaptions([]);
+            setCaptionImages(JSON.parse(JSON.stringify(images()))); // hacky deep copy
+            setGameState(GameState.AwaitingCaptions);
+            messageRoom({
+              type: "AwaitingCaptions",
+              image: captionImages()[0]
+            });
+            // TODO: next we select an image at random, and everyone captions!
+          }
+        } else if (msg.type === "AwaitingCaptions"  && gameRole() === GameRole.Client) {
+          setCaptionImages([msg.image])
+          setGameState(GameState.CaptioningImages);
+        } else if (msg.type === "CaptionResponse" && gameRole() === GameRole.Host) {
+          setCaptions(captions().concat(msg));
+          if (captions().length === players().length - 1) {
+            // Send message with all the captions for clients to vote
+            messageRoom({
+              type: "VotingCaptions",
+              captions: captions(),
+            });
+            setGameState(GameState.AwaitingVotes);
+          }
+        } else if (msg.type === "VotingCaptions"  && gameRole() === GameRole.Client) {
+          setCaptions(msg.captions.filter(c => c.handle !== playerHandle()))
+          setGameState(GameState.VotingCaptions);
+        } else if (msg.type === "CaptionVote" && gameRole() === GameRole.Host) {
+          setVotes(votes().concat(msg.player));
+          if (votes().length === players().length - 1) {
+            setGameState(GameState.Scoring);
+            setCaptionImages(captionImages().slice(1)); // Pop off the top.
+            if (captionImages().length === 0) {
+              // Done with the round
+              window.setTimeout(() => {
+                setGameState(GameState.Finished);
+              }, 2000)
+            } else {
+              window.setTimeout(() => {
+                setCaptions([]);
+                setVotes([]);
+                setGameState(GameState.AwaitingCaptions);
+                messageRoom({
+                  type: "AwaitingCaptions",
+                  image: captionImages()[0]
+                });
+              }, 2000)
+            }
+          }
         }
       }).subscribe();
   }
@@ -167,12 +228,7 @@ const App: Component = () => {
   }
 
   const diffuse = async () => {
-    // Perhaps we want to let the edge function send this message.
-    // That way it'll only happen once the image is done.
-    // messageRoom({
-    //   type: "ImageGenerated"
-    // })
-    console.log("sending prompt", document.getElementById("diffusionPrompt")?.value)
+    // TODO: disable the button while it's going
     const { data, error } = await supabase.functions.invoke("diffuse", {
       body: JSON.stringify({
         room: roomId(),
@@ -181,9 +237,23 @@ const App: Component = () => {
         prompt: document.getElementById("diffusionPrompt")?.value
       })
     })
-    console.log("Finished invocation:", data, error)
     setGameState(GameState.DoneCreating);
-    
+  }
+
+  const caption = async () => {
+    messageRoom({
+      type: "CaptionResponse",
+      caption: document.getElementById("imageCaption")?.value
+    });
+    setGameState(GameState.DoneCaptioning);
+  }
+
+  const vote = async (handle: string) => {
+    messageRoom({
+      type: "CaptionVote",
+      player: handle
+    });
+    setGameState(GameState.DoneVoting);
   }
 
 	return (
@@ -226,8 +296,46 @@ const App: Component = () => {
           <textarea id="diffusionPrompt" placeholder="Describe an image of your prompt..."></textarea>
           <button onclick={() => diffuse()}>Generate!</button>
         </Match>
-        <Match when={gameState() === GameState.DoneCreating}>
+        <Match when={gameState() === GameState.DoneCreating ||
+                     gameState() === GameState.DoneCaptioning ||
+                     gameState() === GameState.DoneVoting}>
           Waiting for other players to finish up...
+        </Match>
+        <Match when={gameState() === GameState.AwaitingCaptions}>
+          Caption time:
+          <img src={captionImages()[0].url}></img>
+        </Match>
+        <Match when={gameState() === GameState.CaptioningImages}>
+          <Show when={captionImages()[0].handle !== playerHandle()}
+                fallback={"You are responsible for this masterpiece. Well done."} >
+            This image is sooo...
+            <input id="imageCaption" type="text" placeholder="vaporwave"></input>
+            <button onclick={() => caption()}>Generate!</button>
+          </Show>
+        </Match>
+        <Match when={gameState() === GameState.AwaitingVotes}>
+          Voting time! This image is soo...
+          <img src={captionImages()[0].url}></img>
+        </Match>
+        <Match when={gameState() === GameState.VotingCaptions}>
+          <Show when={captionImages()[0].handle !== playerHandle()}
+                fallback={"You are still responsible for this masterpiece. Nice."} >
+            Vote!
+            <For each={captions()}>{(c, i) =>
+                <button onclick={() => vote(c.handle)}>{c.caption}</button>
+            }</For>
+          </Show>
+        </Match>
+        <Match when={gameState() === GameState.Scoring}>
+          Votes:
+          <ul>
+          <For each={votes()}>{(v, i) =>
+              <li>Player {v}</li>
+          }</For>
+          </ul>
+        </Match>
+        <Match when={gameState() === GameState.Finished}>
+          You played the game! Good job.
         </Match>
       </Switch>
       
