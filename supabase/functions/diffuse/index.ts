@@ -14,7 +14,7 @@ serve(async (req) => {
 		return new Response('ok', { headers: corsHeaders });
 	}
 
-  const { prompt, handle, room, hiddenPrompt } = await req.json()
+  const { prompt, player, room, hiddenPrompt } = await req.json()
   const supabaseClient = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
     Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -27,7 +27,7 @@ serve(async (req) => {
       room: room,
       data: {
         type: "GeneratedImage",
-        handle: handle,
+        player: player,
         prompt: prompt,
         url: genData.url.publicUrl,
         hiddenPrompt: hiddenPrompt,

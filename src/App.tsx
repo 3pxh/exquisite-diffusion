@@ -29,29 +29,35 @@ enum GameState {
   Finished
 }
 
-interface ImageData {
+
+interface PlayerHandle {
   handle: string,
+  uuid: string
+}
+interface ImageData {
+  player: PlayerHandle,
   url: string
 }
 interface CaptionData {
-  handle: string,
+  player: PlayerHandle,
   caption: string
 }
 
+
 const App: Component = () => {
 	const [session, setSession] = createSignal<AuthSession | null>(null)
-  const [playerHandle, setPlayerHandle] = createSignal<string>(crypto.randomUUID())
+  const [playerHandle, setPlayerHandle] = createSignal<PlayerHandle | null>(null)
   const [gameState, setGameState] = createSignal<GameState>(GameState.Pregame)
   const [gameRole, setGameRole] = createSignal<GameRole | null>(null)
   const [roomShortcode, setRoomShortcode] = createSignal<string | null>(null)
   const [roomId, setRoomId] = createSignal<number | null>(null)
   const [errorMessage, setErrorMessage] = createSignal<string | null>(null)
-  const [players, setPlayers] = createSignal<string[]>([])
+  const [players, setPlayers] = createSignal<PlayerHandle[]>([])
   const [images, setImages] = createSignal<ImageData[]>([])
   const [captions, setCaptions] = createSignal<CaptionData[]>([])
   const [drawPrompt, setDrawPrompt] = createSignal<string | null>(null)
   const [captionImages, setCaptionImages] = createSignal<ImageData[]>([])
-  const [votes, setVotes] = createSignal<string[]>([])
+  const [votes, setVotes] = createSignal<PlayerHandle[]>([])
 
 	createEffect(() => {
 		supabase.auth.getSession().then(({ data: { session } }) => {
@@ -67,7 +73,7 @@ const App: Component = () => {
     // TODO: Guarantee that we have a room id, do error handling/reporting
     let { data, error, status } = await supabase.from('messages').insert({
       room: roomId(),
-      data: {...msg, role: gameRole(), handle: playerHandle()}
+      data: {...msg, role: gameRole(), player: playerHandle()}
     });
   }
 
@@ -85,7 +91,6 @@ const App: Component = () => {
       shortcode: shortcode,
       host_state: GameState[GameState.Lobby] // Convert to string in case the enum changes
     }).select().single();
-    console.log("created room", data)
     if (data === null || error !== null) {
       setErrorMessage(`Could not create room, status code ${status}. Check console for errors.`);
       console.log(error);
@@ -108,6 +113,11 @@ const App: Component = () => {
     }
   }
 
+  const generateSecretPrompt = () => {
+    // TODO: get a secret prompt from each player and then shuffle them.
+    return "hi";
+  }
+
   const subscribeToRoom = (id: number) => {
     supabase
       .channel(`public:messages:room=eq.${id}`)
@@ -118,7 +128,7 @@ const App: Component = () => {
         const msg = payload.new.data;
         const hostingLobby = gameRole() === GameRole.Host && gameState() === GameState.Lobby;
         if (msg.type === "NewPlayer" && hostingLobby) {
-          setPlayers(players().concat([msg.handle]));
+          setPlayers(players().concat([msg.player]));
         } else if (msg.type === "StartGame") {
           setGameState(GameState.Introduction);
           if (gameRole() === GameRole.Host) {
@@ -128,8 +138,8 @@ const App: Component = () => {
                 type: "Prompts",
                 prompts: players().map(p => {
                   return {
-                    handle: p, 
-                    prompt: crypto.randomUUID()
+                    player: p, 
+                    prompt: generateSecretPrompt()
                   }
                 })
               });
@@ -139,7 +149,7 @@ const App: Component = () => {
           }
         } else if (msg.type === "Prompts" && gameRole() === GameRole.Client) {
           setGameState(GameState.CreatingImages);
-          const myPrompt = msg.prompts.find(pr => pr.handle === playerHandle());
+          const myPrompt = msg.prompts.find(pr => pr.player.uuid === playerHandle()?.uuid);
           setDrawPrompt(myPrompt.prompt);
         } else if (msg.type === "GeneratedImage" && gameRole() === GameRole.Host) {
           setImages(images().concat(msg));
@@ -167,7 +177,7 @@ const App: Component = () => {
             setGameState(GameState.AwaitingVotes);
           }
         } else if (msg.type === "VotingCaptions"  && gameRole() === GameRole.Client) {
-          setCaptions(msg.captions.filter(c => c.handle !== playerHandle()))
+          setCaptions(msg.captions.filter(c => c.player.uuid !== playerHandle()?.uuid))
           setGameState(GameState.VotingCaptions);
         } else if (msg.type === "CaptionVote" && gameRole() === GameRole.Host) {
           setVotes(votes().concat(msg.player));
@@ -196,6 +206,10 @@ const App: Component = () => {
   }
 
   const joinRoom = async () => {
+    setPlayerHandle({
+      handle: document.getElementById("handle")?.value,
+      uuid: crypto.randomUUID()
+    });
     const shortcode = document.getElementById("shortcode")?.value.toUpperCase();
     let { data, error, status } = await supabase
 				.from('rooms')
@@ -209,7 +223,7 @@ const App: Component = () => {
       console.log(error);
     } else {
       stateChangeLobby(shortcode, id);
-      messageRoom({type: "NewPlayer", data: {handle: playerHandle()}});
+      messageRoom({type: "NewPlayer"});
     }
   }
 
@@ -229,15 +243,17 @@ const App: Component = () => {
 
   const diffuse = async () => {
     // TODO: disable the button while it's going
+    const p = document.getElementById("diffusionPrompt")?.value;
+    // Must store this, because the element goes away on state change.
+    setGameState(GameState.DoneCreating);
     const { data, error } = await supabase.functions.invoke("diffuse", {
       body: JSON.stringify({
         room: roomId(),
-        handle: playerHandle(),
+        player: playerHandle(),
         hiddenPrompt: drawPrompt(),
-        prompt: document.getElementById("diffusionPrompt")?.value
+        prompt: p
       })
     })
-    setGameState(GameState.DoneCreating);
   }
 
   const caption = async () => {
@@ -248,10 +264,10 @@ const App: Component = () => {
     setGameState(GameState.DoneCaptioning);
   }
 
-  const vote = async (handle: string) => {
+  const vote = async (player: PlayerHandle) => {
     messageRoom({
       type: "CaptionVote",
-      player: handle
+      player: player
     });
     setGameState(GameState.DoneVoting);
   }
@@ -269,14 +285,21 @@ const App: Component = () => {
             : <><button onclick={() => createRoom()}>Create New Game</button>{errorMessage()}</>}
         </Match>
         <Match when={gameState() === GameState.JoinRoom}>
-          Enter room code: <input style="text-transform:uppercase;" value="" id="shortcode" placeholder="Room Code"></input>
+          <h2>Join a game</h2>
+          <input value="" id="handle" placeholder="Name"></input>
+          <input style="text-transform:uppercase;" value="" id="shortcode" placeholder="Room Code"></input>
           <button onclick={() => joinRoom()}>Join room</button>
           {errorMessage()}
         </Match>
         <Match when={gameState() === GameState.Lobby}>
           <Show when={gameRole() === GameRole.Host} >
             <h2>Room code: {roomShortcode()}</h2>
-            {players().length} in lobby
+            {players().length} in lobby:
+            <ul>
+              <For each={players()}>{(p, i) =>
+                <li>{p.handle}</li>
+              }</For>
+            </ul>
           </Show>
           <Show when={gameRole() === GameRole.Client} >
             Welcome to the lobby. When all players are in, hit the button!
@@ -287,12 +310,13 @@ const App: Component = () => {
           Generating prompts...
         </Match>
         <Match when={gameState() === GameState.AwaitingImages}>
-          <For each={images()}>{(img, i) =>
+          <h2>Describe an image of...</h2>
+          {/* <For each={images()}>{(img, i) =>
               <img src={img.url} alt={img.handle}></img>
-          }</For>
+          }</For> */}
         </Match>
         <Match when={gameState() === GameState.CreatingImages}>
-          {drawPrompt()}
+          Also, make it very: {drawPrompt()}
           <textarea id="diffusionPrompt" placeholder="Describe an image of your prompt..."></textarea>
           <button onclick={() => diffuse()}>Generate!</button>
         </Match>
@@ -306,11 +330,11 @@ const App: Component = () => {
           <img src={captionImages()[0].url}></img>
         </Match>
         <Match when={gameState() === GameState.CaptioningImages}>
-          <Show when={captionImages()[0].handle !== playerHandle()}
+          <Show when={captionImages()[0].player.uuid !== playerHandle().uuid}
                 fallback={"You are responsible for this masterpiece. Well done."} >
             This image is sooo...
             <input id="imageCaption" type="text" placeholder="vaporwave"></input>
-            <button onclick={() => caption()}>Generate!</button>
+            <button onclick={() => caption()}>Oh yeah!</button>
           </Show>
         </Match>
         <Match when={gameState() === GameState.AwaitingVotes}>
@@ -318,11 +342,11 @@ const App: Component = () => {
           <img src={captionImages()[0].url}></img>
         </Match>
         <Match when={gameState() === GameState.VotingCaptions}>
-          <Show when={captionImages()[0].handle !== playerHandle()}
+          <Show when={captionImages()[0].player.uuid !== playerHandle()?.uuid}
                 fallback={"You are still responsible for this masterpiece. Nice."} >
             Vote!
             <For each={captions()}>{(c, i) =>
-                <button onclick={() => vote(c.handle)}>{c.caption}</button>
+                <button onclick={() => vote(c.player)}>{c.caption}</button>
             }</For>
           </Show>
         </Match>
@@ -330,7 +354,7 @@ const App: Component = () => {
           Votes:
           <ul>
           <For each={votes()}>{(v, i) =>
-              <li>Player {v}</li>
+              <li>{v.handle}</li>
           }</For>
           </ul>
         </Match>
@@ -338,8 +362,6 @@ const App: Component = () => {
           You played the game! Good job.
         </Match>
       </Switch>
-      
-			
 		</div>
 	)
 }
