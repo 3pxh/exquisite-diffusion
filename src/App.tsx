@@ -1,4 +1,4 @@
-import { Component, createEffect, createSignal, Switch, Match } from 'solid-js'
+import { Component, createEffect, createSignal, Switch, Match, Show, For } from 'solid-js'
 import { supabase } from './supabaseClient'
 import { AuthSession } from '@supabase/supabase-js'
 import Auth from './Auth'
@@ -8,25 +8,37 @@ enum GameRole {
   Client
 }
 
+// TODO: split game states into host and client states?
+// Serve two different pages. Obvi.
 enum GameState {
   Pregame,
   Login, // For hosts only
   JoinRoom, // For clients only
   Lobby,
   Introduction,
-  CreatingImages,
+  CreatingImages, // Client
+  AwaitingImages, // Host
+  DoneCreating,
   CaptioningImages,
   Scoring
 }
 
+interface ImageData {
+  handle: string,
+  url: string
+}
+
 const App: Component = () => {
 	const [session, setSession] = createSignal<AuthSession | null>(null)
+  const [playerHandle, setPlayerHandle] = createSignal<string>(crypto.randomUUID())
   const [gameState, setGameState] = createSignal<GameState>(GameState.Pregame)
   const [gameRole, setGameRole] = createSignal<GameRole | null>(null)
   const [roomShortcode, setRoomShortcode] = createSignal<string | null>(null)
   const [roomId, setRoomId] = createSignal<number | null>(null)
   const [errorMessage, setErrorMessage] = createSignal<string | null>(null)
-  const [nPlayers, setNPlayers] = createSignal<number>(0)
+  const [players, setPlayers] = createSignal<string[]>([])
+  const [images, setImages] = createSignal<ImageData[]>([])
+  const [drawPrompt, setDrawPrompt] = createSignal<string | null>(null)
 
 	createEffect(() => {
 		supabase.auth.getSession().then(({ data: { session } }) => {
@@ -40,19 +52,16 @@ const App: Component = () => {
 
   const messageRoom = async (msg: any) => {
     // TODO: Guarantee that we have a room id, do error handling/reporting
-    console.log("messaging room", roomId())
     let { data, error, status } = await supabase.from('messages').insert({
       room: roomId(),
-      data: msg
+      data: {...msg, role: gameRole(), handle: playerHandle()}
     });
   }
 
   const makeShortcode = () => {
     let shortcode = '';
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    var charactersLength = chars.length;
     for ( var i = 0; i < 4; i++ ) {
-      shortcode += chars.charAt(Math.floor(Math.random() * chars.length));
+      shortcode += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.charAt(Math.floor(Math.random() * 26));
     }
     return shortcode;
   }
@@ -92,12 +101,37 @@ const App: Component = () => {
       .on('postgres_changes', { 
         event: 'INSERT', schema: 'public', table: 'messages', filter: `room=eq.${id}` 
       }, payload => {
-        console.log("Payload!", payload);
-        if (payload.new.data.type === "NewPlayer") {
-          setNPlayers(nPlayers() + 1)
+        console.log("got payload", payload)
+        const msg = payload.new.data;
+        const hostingLobby = gameRole() === GameRole.Host && gameState() === GameState.Lobby;
+        if (msg.type === "NewPlayer" && hostingLobby) {
+          setPlayers(players().concat([msg.handle]));
+        } else if (msg.type === "StartGame") {
+          setGameState(GameState.Introduction);
+          if (gameRole() === GameRole.Host) {
+            window.setTimeout(() => {
+              setGameState(GameState.AwaitingImages);
+              messageRoom({
+                type: "Prompts",
+                prompts: players().map(p => {
+                  return {
+                    handle: p, 
+                    prompt: crypto.randomUUID()
+                  }
+                })
+              });
+            }, 2000);
+            // We hope all players receive the message in time?
+            // Perhaps host broadcasting the game state each step would help if someone drops
+          }
+        } else if (msg.type === "Prompts" && gameRole() === GameRole.Client) {
+          setGameState(GameState.CreatingImages);
+          const myPrompt = msg.prompts.find(pr => pr.handle === playerHandle());
+          setDrawPrompt(myPrompt.prompt);
+        } else if (msg.type === "GeneratedImage" && gameRole() === GameRole.Host) {
+          setImages(images().concat(msg));
         }
       }).subscribe();
-    console.log("subscribed to room", id);
   }
 
   const joinRoom = async () => {
@@ -114,7 +148,7 @@ const App: Component = () => {
       console.log(error);
     } else {
       stateChangeLobby(shortcode, id);
-      messageRoom({type: "NewPlayer"});
+      messageRoom({type: "NewPlayer", data: {handle: playerHandle()}});
     }
   }
 
@@ -123,6 +157,33 @@ const App: Component = () => {
     setRoomId(id)
     setGameState(GameState.Lobby);
     subscribeToRoom(id);
+  }
+
+  const startGame = () => {
+    // Sent by the client.
+    messageRoom({
+      type: "StartGame"
+    });
+  }
+
+  const diffuse = async () => {
+    // Perhaps we want to let the edge function send this message.
+    // That way it'll only happen once the image is done.
+    // messageRoom({
+    //   type: "ImageGenerated"
+    // })
+    console.log("sending prompt", document.getElementById("diffusionPrompt")?.value)
+    const { data, error } = await supabase.functions.invoke("diffuse", {
+      body: JSON.stringify({
+        room: roomId(),
+        handle: playerHandle(),
+        hiddenPrompt: drawPrompt(),
+        prompt: document.getElementById("diffusionPrompt")?.value
+      })
+    })
+    console.log("Finished invocation:", data, error)
+    setGameState(GameState.DoneCreating);
+    
   }
 
 	return (
@@ -143,9 +204,30 @@ const App: Component = () => {
           {errorMessage()}
         </Match>
         <Match when={gameState() === GameState.Lobby}>
-          {gameRole() === GameRole.Host 
-            ? <>{nPlayers()} in lobby, to join: {roomShortcode()}</> 
-            : "Waiting for other players"}
+          <Show when={gameRole() === GameRole.Host} >
+            <h2>Room code: {roomShortcode()}</h2>
+            {players().length} in lobby
+          </Show>
+          <Show when={gameRole() === GameRole.Client} >
+            Welcome to the lobby. When all players are in, hit the button!
+            <button onclick={() => startGame()}>Let's gooooooooooooo</button>
+          </Show>
+        </Match>
+        <Match when={gameState() === GameState.Introduction}>
+          Generating prompts...
+        </Match>
+        <Match when={gameState() === GameState.AwaitingImages}>
+          <For each={images()}>{(img, i) =>
+              <img src={img.url} alt={img.handle}></img>
+          }</For>
+        </Match>
+        <Match when={gameState() === GameState.CreatingImages}>
+          {drawPrompt()}
+          <textarea id="diffusionPrompt" placeholder="Describe an image of your prompt..."></textarea>
+          <button onclick={() => diffuse()}>Generate!</button>
+        </Match>
+        <Match when={gameState() === GameState.DoneCreating}>
+          Waiting for other players to finish up...
         </Match>
       </Switch>
       

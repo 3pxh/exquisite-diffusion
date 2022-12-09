@@ -14,18 +14,36 @@ serve(async (req) => {
 		return new Response('ok', { headers: corsHeaders });
 	}
 
-  const { prompt } = await req.json()
+  const { prompt, handle, room, hiddenPrompt } = await req.json()
   const supabaseClient = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
     Deno.env.get('SUPABASE_ANON_KEY') ?? '',
     { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
   );
-  const status = generate(supabaseClient, prompt);
-
-  return new Response(
-    JSON.stringify(status),
-    { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-  )
+  const genData = await generate(supabaseClient, prompt);
+  console.log("Got a prompt:", prompt)
+  if (!genData.error) {
+    let { data, error, status } = await supabaseClient.from('messages').insert({
+      room: room,
+      data: {
+        type: "GeneratedImage",
+        handle: handle,
+        prompt: prompt,
+        url: genData.url.publicUrl,
+        hiddenPrompt: hiddenPrompt,
+        seed: 0 // In case we want to get/save that from SD
+      }
+    });
+    return new Response(
+      JSON.stringify(status),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    )
+  } else {
+    return new Response(
+      JSON.stringify(genData.error),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    )
+  }
 })
 
 
@@ -73,15 +91,23 @@ async function generate(supabaseClient: any, prompt: string) {
 
   try {
     const id = crypto.randomUUID();
+    const filename = `v0/${id}.png`;
     const image = await response.blob();
-    const {data, error} = await supabaseClient.storage.from('generated-images').upload(`v0/${id}.png`, image)
+    const {data, error} = await supabaseClient.storage.from('generated-images').upload(filename, image)
     if (error) {
       console.error(error);
       return {
         error: error
       };
     } else {
-      return {error: null}
+      const { data } = supabaseClient
+        .storage
+        .from('generated-images')
+        .getPublicUrl(filename)
+      return {
+        error: null,
+        url: data
+      }
     }
   } catch (e) {
     console.error(e);
