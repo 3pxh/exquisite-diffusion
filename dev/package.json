@@ -5,7 +5,7 @@
 	"scripts": {
 		"start": "vite",
 		"dev": "vite",
-		"build": "vite build",
+		"build": "vite build && mv dist/index.html ../index.html && mv dist/assets ../assets",
 		"serve": "vite preview",
 		"format": "prettier --write \"src/*.{js,json,ts,tsx,jsx}\""
 	},
