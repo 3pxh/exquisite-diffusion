@@ -14,7 +14,7 @@ serve(async (req) => {
 		return new Response('ok', { headers: corsHeaders });
 	}
 
-  const { prompt, player, room, hiddenPrompt } = await req.json()
+  const { prompt, player, room, secretPrompt } = await req.json()
   const supabaseClient = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
     Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -30,7 +30,7 @@ serve(async (req) => {
         player: player,
         prompt: prompt,
         url: genData.url.publicUrl,
-        hiddenPrompt: hiddenPrompt,
+        secretPrompt: secretPrompt,
         seed: 0 // In case we want to get/save that from SD
       }
     });
@@ -70,7 +70,7 @@ async function generate(supabaseClient: any, prompt: string) {
         width: 512,
         samples: 1,
         seed: 0,
-        steps: 10,
+        steps: 30,
         text_prompts: [
           {
             text: prompt,

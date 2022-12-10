@@ -15,6 +15,8 @@ enum GameState {
   Login, // For hosts only
   JoinRoom, // For clients only
   Lobby,
+  CreatingPrompts,
+  AwaitingPrompts,
   Introduction,
   CreatingImages, // Client
   AwaitingImages, // Host
@@ -36,13 +38,21 @@ interface PlayerHandle {
 }
 interface ImageData {
   player: PlayerHandle,
-  url: string
+  url: string,
+  secretPrompt: string,
 }
 interface CaptionData {
   player: PlayerHandle,
   caption: string
 }
-
+interface PromptData {
+  publicPrompt: string,
+  secretPrompts: string[]
+}
+interface Vote {
+  vote: PlayerHandle,
+  player: PlayerHandle
+}
 
 const App: Component = () => {
 	const [session, setSession] = createSignal<AuthSession | null>(null)
@@ -53,11 +63,14 @@ const App: Component = () => {
   const [roomId, setRoomId] = createSignal<number | null>(null)
   const [errorMessage, setErrorMessage] = createSignal<string | null>(null)
   const [players, setPlayers] = createSignal<PlayerHandle[]>([])
+  const [scores, setScores] = createSignal<Record<PlayerHandle["uuid"], number>>({})
+  const [prompts, setPrompts] = createSignal<PromptData[]>([])
   const [images, setImages] = createSignal<ImageData[]>([])
   const [captions, setCaptions] = createSignal<CaptionData[]>([])
-  const [drawPrompt, setDrawPrompt] = createSignal<string | null>(null)
+  const [secretPrompt, setSecretPrompt] = createSignal<string | null>(null)
   const [captionImages, setCaptionImages] = createSignal<ImageData[]>([])
-  const [votes, setVotes] = createSignal<PlayerHandle[]>([])
+  const [votes, setVotes] = createSignal<Vote[]>([])
+  const [round, setRound] = createSignal<number>(0)
 
 	createEffect(() => {
 		supabase.auth.getSession().then(({ data: { session } }) => {
@@ -73,6 +86,8 @@ const App: Component = () => {
     // TODO: Guarantee that we have a room id, do error handling/reporting
     let { data, error, status } = await supabase.from('messages').insert({
       room: roomId(),
+      // TODO: Make this less possible to collide with callers of messageRoom
+      //  - I accidentally used "player" at one point to pass a vote -_-
       data: {...msg, role: gameRole(), player: playerHandle()}
     });
   }
@@ -113,9 +128,8 @@ const App: Component = () => {
     }
   }
 
-  const generateSecretPrompt = () => {
-    // TODO: get a secret prompt from each player and then shuffle them.
-    return "hi";
+  const chooseOne = <T,>(A: T[]) : T => {
+    return A[Math.floor(A.length * Math.random())];
   }
 
   const subscribeToRoom = (id: number) => {
@@ -129,28 +143,36 @@ const App: Component = () => {
         const hostingLobby = gameRole() === GameRole.Host && gameState() === GameState.Lobby;
         if (msg.type === "NewPlayer" && hostingLobby) {
           setPlayers(players().concat([msg.player]));
-        } else if (msg.type === "StartGame") {
+        } else if (msg.type === "StartGame" && gameRole() === GameRole.Host) {
           setGameState(GameState.Introduction);
-          if (gameRole() === GameRole.Host) {
-            window.setTimeout(() => {
-              setGameState(GameState.AwaitingImages);
-              messageRoom({
-                type: "Prompts",
-                prompts: players().map(p => {
-                  return {
-                    player: p, 
-                    prompt: generateSecretPrompt()
-                  }
-                })
-              });
-            }, 2000);
-            // We hope all players receive the message in time?
-            // Perhaps host broadcasting the game state each step would help if someone drops
+          const s:Record<PlayerHandle["uuid"], number> = {};
+          players().forEach(p => { s[p.uuid] = 0; });
+          setScores(s);
+          messageRoom({
+            type: "AwaitingPrompts",
+            players: players()
+          });
+        } else if (msg.type === "AwaitingPrompts" && gameRole() === GameRole.Client) {
+          setPlayers(msg.players); // Need this on the client for # players
+          setGameState(GameState.CreatingPrompts);
+        } else if (msg.type === "ClientPrompt" && gameRole() === GameRole.Host) {
+          setPrompts(prompts().concat([msg.prompt]))
+          if (prompts().length === players().length) {
+            setGameState(GameState.AwaitingImages);
+            messageRoom({
+              type: "Prompts",
+              prompts: players().map(p => {
+                return {
+                  player: p,
+                  secretPrompt: chooseOne(chooseOne(prompts()).secretPrompts)
+                }
+              })
+            });
           }
         } else if (msg.type === "Prompts" && gameRole() === GameRole.Client) {
           setGameState(GameState.CreatingImages);
           const myPrompt = msg.prompts.find(pr => pr.player.uuid === playerHandle()?.uuid);
-          setDrawPrompt(myPrompt.prompt);
+          setSecretPrompt(myPrompt.secretPrompt);
         } else if (msg.type === "GeneratedImage" && gameRole() === GameRole.Host) {
           setImages(images().concat(msg));
           if (images().length === players().length) {
@@ -172,7 +194,11 @@ const App: Component = () => {
             // Send message with all the captions for clients to vote
             messageRoom({
               type: "VotingCaptions",
-              captions: captions(),
+              // Include the secret prompt!
+              captions: captions().concat([{
+                player: captionImages()[0].player,
+                caption: captionImages()[0].secretPrompt
+              }]),
             });
             setGameState(GameState.AwaitingVotes);
           }
@@ -180,15 +206,48 @@ const App: Component = () => {
           setCaptions(msg.captions.filter(c => c.player.uuid !== playerHandle()?.uuid))
           setGameState(GameState.VotingCaptions);
         } else if (msg.type === "CaptionVote" && gameRole() === GameRole.Host) {
-          setVotes(votes().concat(msg.player));
+          setVotes(votes().concat(msg));
           if (votes().length === players().length - 1) {
+            // Go through the votes and count scores?
+            const newScores = scores();
+            const drawingPlayer = captionImages()[0].player.uuid;
+            votes().forEach(v => {
+              if (v.vote.uuid === drawingPlayer) {
+                // If the vote was correctly cast
+                newScores[v.player.uuid] += 1000;
+                newScores[drawingPlayer] += 1000;
+              } else {
+                // If it was cast for a lie
+                newScores[v.vote.uuid] += 500;
+              }
+            })
+            setScores(newScores);
+
             setGameState(GameState.Scoring);
             setCaptionImages(captionImages().slice(1)); // Pop off the top.
             if (captionImages().length === 0) {
               // Done with the round
-              window.setTimeout(() => {
-                setGameState(GameState.Finished);
-              }, 2000)
+              if (round() < players().length - 1) {
+                setRound(round() + 1);
+                window.setTimeout(() => {
+                  setGameState(GameState.AwaitingImages);
+                  setImages([]);
+                  messageRoom({
+                    type: "Prompts",
+                    prompts: players().map(p => {
+                      return {
+                        player: p,
+                        secretPrompt: chooseOne(chooseOne(prompts()).secretPrompts)
+                      }
+                    })
+                  });
+                }, 2000)
+              } else {
+                // Done with the whole game
+                window.setTimeout(() => {
+                  setGameState(GameState.Finished);
+                }, 2000)
+              }
             } else {
               window.setTimeout(() => {
                 setCaptions([]);
@@ -206,6 +265,7 @@ const App: Component = () => {
   }
 
   const joinRoom = async () => {
+    // TODO: disable the button -- if they hit it twice they double join
     setPlayerHandle({
       handle: document.getElementById("handle")?.value,
       uuid: crypto.randomUUID()
@@ -235,10 +295,25 @@ const App: Component = () => {
   }
 
   const startGame = () => {
-    // Sent by the client.
     messageRoom({
       type: "StartGame"
     });
+  }
+
+  const sendPrompt = () => {
+    let secrets = [];
+    const els = document.getElementsByClassName("secretPrompt");
+    for (const el of els) {
+      secrets.push(el.value);
+    }
+    messageRoom({
+      type: "ClientPrompt",
+      prompt: {
+        publicPrompt: document.getElementById("gamePrompt")?.value,
+        secretPrompts: secrets
+      }
+    });
+    setGameState(GameState.Introduction)
   }
 
   const diffuse = async () => {
@@ -250,7 +325,7 @@ const App: Component = () => {
       body: JSON.stringify({
         room: roomId(),
         player: playerHandle(),
-        hiddenPrompt: drawPrompt(),
+        secretPrompt: secretPrompt(),
         prompt: p
       })
     })
@@ -267,10 +342,18 @@ const App: Component = () => {
   const vote = async (player: PlayerHandle) => {
     messageRoom({
       type: "CaptionVote",
-      player: player
+      vote: player
     });
     setGameState(GameState.DoneVoting);
   }
+
+  const secretPlaceholders = ["extra cute", "3d but anime", "and tacos", 
+    "very cosmic. much wow.", "hypersurreal", "GREEN!!!",
+    "quaint"];
+  const shuffledPlaceholders = secretPlaceholders
+    .map(value => ({ value, sort: Math.random() }))
+    .sort((a, b) => a.sort - b.sort)
+    .map(({ value }) => value);
 
 	return (
 		<div class="container" style={{ padding: '50px 0 100px 0' }}>
@@ -302,22 +385,39 @@ const App: Component = () => {
             </ul>
           </Show>
           <Show when={gameRole() === GameRole.Client} >
-            Welcome to the lobby. When all players are in, hit the button!
+            <h2>Welcome</h2>
+            <p>Only press once everyone is in the room!</p>
             <button onclick={() => startGame()}>Let's gooooooooooooo</button>
           </Show>
         </Match>
+        <Match when={gameState() === GameState.CreatingPrompts}>
+          <p>What would you like your friends to make today?</p>
+          <input id="gamePrompt" type="text" placeholder="a dancing walrus"></input>
+          <p>Give some secret, spicy descriptors!</p>
+          <For each={players()}>{(p, i) =>
+            <input class="secretPrompt" type="text" placeholder={shuffledPlaceholders[i()]}></input>
+          }</For>
+          <button onclick={() => sendPrompt()}>I feel good about that</button>
+        </Match>
         <Match when={gameState() === GameState.Introduction}>
-          Generating prompts...
+          <Show when={gameRole() === GameRole.Host} >
+            <h2>Dispatching prompts...</h2>
+            Beep boop beep
+          </Show>
+          <Show when={gameRole() === GameRole.Client} >
+            Waiting for other players to submit their prompts
+          </Show>
         </Match>
         <Match when={gameState() === GameState.AwaitingImages}>
-          <h2>Describe an image of...</h2>
+          <h2>Round {round() + 1}, describe...</h2>
+          <h3>{prompts()[round()].publicPrompt}</h3>
           {/* <For each={images()}>{(img, i) =>
               <img src={img.url} alt={img.handle}></img>
           }</For> */}
         </Match>
         <Match when={gameState() === GameState.CreatingImages}>
-          Also, make it very: {drawPrompt()}
-          <textarea id="diffusionPrompt" placeholder="Describe an image of your prompt..."></textarea>
+          <p>Also, make it very: "{secretPrompt()}"</p>
+          <input id="diffusionPrompt" placeholder="Describe an image..."></input>
           <button onclick={() => diffuse()}>Generate!</button>
         </Match>
         <Match when={gameState() === GameState.DoneCreating ||
@@ -326,40 +426,53 @@ const App: Component = () => {
           Waiting for other players to finish up...
         </Match>
         <Match when={gameState() === GameState.AwaitingCaptions}>
-          Caption time:
+          <p>Round {round() + 1}, describe:</p>
           <img src={captionImages()[0].url}></img>
         </Match>
         <Match when={gameState() === GameState.CaptioningImages}>
-          <Show when={captionImages()[0].player.uuid !== playerHandle().uuid}
+          <Show when={captionImages()[0].player.uuid !== playerHandle()?.uuid}
                 fallback={"You are responsible for this masterpiece. Well done."} >
-            This image is sooo...
+            <p>This image is sooo...</p>
             <input id="imageCaption" type="text" placeholder="vaporwave"></input>
             <button onclick={() => caption()}>Oh yeah!</button>
           </Show>
         </Match>
         <Match when={gameState() === GameState.AwaitingVotes}>
-          Voting time! This image is soo...
+          <h2>Voting time!</h2>
+          <p>Select an option on your device.</p>
           <img src={captionImages()[0].url}></img>
         </Match>
         <Match when={gameState() === GameState.VotingCaptions}>
           <Show when={captionImages()[0].player.uuid !== playerHandle()?.uuid}
                 fallback={"You are still responsible for this masterpiece. Nice."} >
-            Vote!
+            <h2>Vote! This image is sooo...</h2>
             <For each={captions()}>{(c, i) =>
-                <button onclick={() => vote(c.player)}>{c.caption}</button>
+                <p><button onclick={() => vote(c.player)}>{c.caption}</button></p>
             }</For>
           </Show>
         </Match>
         <Match when={gameState() === GameState.Scoring}>
-          Votes:
+          <h2>Votes:</h2>
           <ul>
           <For each={votes()}>{(v, i) =>
-              <li>{v.handle}</li>
+              <li>{v.player.handle} picked {v.vote.handle}</li>
+          }</For>
+          </ul>
+
+          <h2>Scores:</h2>
+          <ul>
+          <For each={players()}>{(p, i) =>
+              <li>{p.handle} has {scores()[p.uuid]} points</li>
           }</For>
           </ul>
         </Match>
         <Match when={gameState() === GameState.Finished}>
-          You played the game! Good job.
+          <h2>Final Scores!</h2>
+          <ul>
+          <For each={players()}>{(p, i) =>
+              <li>{p.handle} has {scores()[p.uuid]} points</li>
+          }</For>
+          </ul>
         </Match>
       </Switch>
 		</div>
