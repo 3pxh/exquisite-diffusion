@@ -217,12 +217,12 @@ const App: Component = () => {
                     type: "AwaitingImages",
                     
                   });
-                }, 5000)
+                }, 15000)
               } else {
                 // Done with the whole game
                 window.setTimeout(() => {
                   setGameState(GameState.Finished);
-                }, 5000)
+                }, 15000)
               }
             } else {
               window.setTimeout(() => {
@@ -233,7 +233,7 @@ const App: Component = () => {
                   type: "AwaitingCaptions",
                   image: captionImages()[0]
                 });
-              }, 2000)
+              }, 15000)
             }
           }
         }
