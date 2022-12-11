@@ -352,7 +352,7 @@ const App: Component = () => {
         </Match>
         <Match when={gameState() === GameState.Lobby}>
           <Show when={gameRole() === GameRole.Host} >
-            <h2>Room code: {roomShortcode()}</h2>
+            <h2>Join: go to 3pxh.com, join game, enter room code: {roomShortcode()}</h2>
             {players().length} in lobby:
             <ul>
               <For each={players()}>{(p, i) =>
