@@ -133,6 +133,12 @@ const App: Component = () => {
     return A[Math.floor(A.length * Math.random())];
   }
 
+  const shuffle = <T,>(A: T[]) => {
+    return A.map(value => ({ value, sort: Math.random() }))
+            .sort((a, b) => a.sort - b.sort)
+            .map(({ value }) => value);
+  }
+
   const subscribeToRoom = (id: number) => {
     supabase
       .channel(`public:messages:room=eq.${id}`)
@@ -176,10 +182,10 @@ const App: Component = () => {
             messageRoom({
               type: "VotingCaptions",
               // Include the secret prompt!
-              captions: captions().concat([{
+              captions: shuffle(captions().concat([{
                 player: captionImages()[0].player,
                 caption: captionImages()[0].prompt
-              }]),
+              }])),
             });
             setGameState(GameState.AwaitingVotes);
           }
