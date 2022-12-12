@@ -343,7 +343,7 @@ const App: Component = () => {
         <Match when={gameState() === GameState.Pregame}>
           <button onclick={() => chooseRole(GameRole.Host)}>Create New Game</button>
           <button onclick={() => chooseRole(GameRole.Client)}>Join A Game</button>
-          <p>Instructions... (test hook)</p>
+          <p>Instructions... (test hook!)</p>
         </Match>
         <Match when={gameState() === GameState.Login}>
           {!session() 
