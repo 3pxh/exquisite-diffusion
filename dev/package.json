@@ -7,7 +7,6 @@
 		"dev": "vite",
 		"build": "vite build && rm ../index.html && rm -rf ../assets && mv dist/index.html ../index.html && mv dist/assets/ ../assets",
 		"serve": "vite preview",
-    "deploy": "npm run build && git add . && git commit -m 'deploy' && git push dreamhost main",
 		"format": "prettier --write \"src/*.{js,json,ts,tsx,jsx}\""
 	},
 	"license": "MIT",
