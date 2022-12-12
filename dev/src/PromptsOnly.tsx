@@ -343,7 +343,26 @@ const App: Component = () => {
         <Match when={gameState() === GameState.Pregame}>
           <button onclick={() => chooseRole(GameRole.Host)}>Create New Game</button>
           <button onclick={() => chooseRole(GameRole.Client)}>Join A Game</button>
-          <p>Instructions... (test hook!)</p>
+          <h2>Instructions:</h2>
+          <ol>
+            <li>Host creates a game, gets a room code</li>
+            <li>Players join the room with the code</li>
+            <li>Players generate images based on a description</li>
+            <li>Images are shown one at a time,
+              <ol>
+                <li>All players (other than the one who made the image) give a description</li>
+                <li>Players see all descriptions (including the true one), and try to guess the true one</li>
+                <li>Players get points for A) guessing the true description, and B) other players guessing their description</li>
+              </ol>
+            </li>
+            <li>After several rounds, the game ends</li>
+          </ol>
+
+          <h2>Notes:</h2>
+          <ul>
+            <li>If your phone falls asleep the game may break</li>
+            <li>Image generation may take up to 30 seconds on the backend -- please be patient!</li>
+          </ul>
         </Match>
         <Match when={gameState() === GameState.Login}>
           {!session() 
