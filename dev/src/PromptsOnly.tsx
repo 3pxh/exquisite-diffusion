@@ -69,7 +69,9 @@ const App: Component = () => {
   const [secretPrompt, setSecretPrompt] = createSignal<string | null>(null)
   const [captionImages, setCaptionImages] = createSignal<ImageData[]>([])
   const [votes, setVotes] = createSignal<Vote[]>([])
-  const [round, setRound] = createSignal<number>(0)
+  const [round, setRound] = createSignal<number>(1)
+
+  const NUM_ROUNDS = 3;
 
 	createEffect(() => {
 		supabase.auth.getSession().then(({ data: { session } }) => {
@@ -213,14 +215,14 @@ const App: Component = () => {
             setCaptionImages(captionImages().slice(1)); // Pop off the top.
             if (captionImages().length === 0) {
               // Done with the round
-              if (round() < players().length - 1) {
+              if (round() < NUM_ROUNDS) {
                 setRound(round() + 1);
                 window.setTimeout(() => {
                   setGameState(GameState.AwaitingImages);
                   setImages([]);
+                  setVotes([]);
                   messageRoom({
                     type: "AwaitingImages",
-                    
                   });
                 }, 15000)
               } else {
@@ -388,6 +390,7 @@ const App: Component = () => {
         <Match when={gameState() === GameState.Introduction}>
           <Show when={gameRole() === GameRole.Host} >
             <h2>Dispatching prompts...</h2>
+            <h3>Image generation may take up to a minute</h3>
             Beep boop beep
           </Show>
           <Show when={gameRole() === GameRole.Client} >
@@ -395,7 +398,7 @@ const App: Component = () => {
           </Show>
         </Match>
         <Match when={gameState() === GameState.AwaitingImages}>
-          <h2>Round {round() + 1}</h2>
+          <h2>Round {round()} of {NUM_ROUNDS}</h2>
           <h3>Awaiting images</h3>
           {/* <For each={images()}>{(img, i) =>
               <img src={img.url} alt={img.handle}></img>
@@ -412,7 +415,7 @@ const App: Component = () => {
           Waiting for other players to finish up...
         </Match>
         <Match when={gameState() === GameState.AwaitingCaptions}>
-          <p>Round {round() + 1}, what describes:</p>
+          <p>Round {round()} of {NUM_ROUNDS}, what describes:</p>
           <img src={captionImages()[0].url}></img>
         </Match>
         <Match when={gameState() === GameState.CaptioningImages}>
