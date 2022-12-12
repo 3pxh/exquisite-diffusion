@@ -15,8 +15,6 @@ enum GameState {
   Login, // For hosts only
   JoinRoom, // For clients only
   Lobby,
-  CreatingPrompts,
-  AwaitingPrompts,
   Introduction,
   CreatingImages, // Client
   AwaitingImages, // Host
@@ -178,14 +176,15 @@ const App: Component = () => {
         } else if (msg.type === "CaptionResponse" && gameRole() === GameRole.Host) {
           setCaptions(captions().concat(msg));
           if (captions().length === players().length - 1) {
+            setCaptions(shuffle(captions().concat([{
+              player: captionImages()[0].player,
+              caption: captionImages()[0].prompt
+            }])));
             // Send message with all the captions for clients to vote
             messageRoom({
               type: "VotingCaptions",
               // Include the secret prompt!
-              captions: shuffle(captions().concat([{
-                player: captionImages()[0].player,
-                caption: captionImages()[0].prompt
-              }])),
+              captions: captions(),
             });
             setGameState(GameState.AwaitingVotes);
           }
@@ -329,14 +328,6 @@ const App: Component = () => {
     setGameState(GameState.DoneVoting);
   }
 
-  const secretPlaceholders = ["extra cute", "3d but anime", "and tacos", 
-    "very cosmic. much wow.", "hypersurreal", "GREEN!!!",
-    "quaint"];
-  const shuffledPlaceholders = secretPlaceholders
-    .map(value => ({ value, sort: Math.random() }))
-    .sort((a, b) => a.sort - b.sort)
-    .map(({ value }) => value);
-
 	return (
 		<div class="container" style={{ padding: '50px 0 100px 0' }}>
       <Switch fallback={<p>Invalid game state.</p>}>
@@ -394,15 +385,6 @@ const App: Component = () => {
             <button onclick={() => startGame()}>Let's gooooooooooooo</button>
           </Show>
         </Match>
-        <Match when={gameState() === GameState.CreatingPrompts}>
-          <p>What would you like your friends to make today?</p>
-          <input id="gamePrompt" type="text" placeholder="a dancing walrus"></input>
-          <p>Give some secret, spicy descriptors!</p>
-          <For each={players()}>{(p, i) =>
-            <input class="secretPrompt" type="text" placeholder={shuffledPlaceholders[i()]}></input>
-          }</For>
-          <button onclick={() => sendPrompt()}>I feel good about that</button>
-        </Match>
         <Match when={gameState() === GameState.Introduction}>
           <Show when={gameRole() === GameRole.Host} >
             <h2>Dispatching prompts...</h2>
@@ -436,15 +418,19 @@ const App: Component = () => {
         <Match when={gameState() === GameState.CaptioningImages}>
           <Show when={captionImages()[0].player.uuid !== playerHandle()?.uuid}
                 fallback={"You are responsible for this masterpiece. Well done."} >
-            <p>What description generated this?</p>
+            <p>Describe:</p>
             <input id="imageCaption" type="text" placeholder="image description"></input>
             <button onclick={() => caption()}>Oh yeah!</button>
           </Show>
         </Match>
         <Match when={gameState() === GameState.AwaitingVotes}>
-          <h2>Guessing time!</h2>
-          <p>Select an option on your device.</p>
-          <img src={captionImages()[0].url}></img>
+          <h2>Who made whatdo happen?</h2>
+          <img src={captionImages()[0].url} style="float:left; margin-right:20px;"></img>
+          <ol>
+          <For each={captions()}>{(c, i) =>
+            <li><h3>{c.caption}</h3></li>
+          }</For>
+          </ol>
         </Match>
         <Match when={gameState() === GameState.VotingCaptions}>
           <Show when={captionImages()[0].player.uuid !== playerHandle()?.uuid}
@@ -457,26 +443,19 @@ const App: Component = () => {
         </Match>
         <Match when={gameState() === GameState.Scoring}>
           <h2>What did people guess?</h2>
-          <ul>
           <For each={votes()}>{(v, i) =>
-              <li>{v.player.handle} picked {v.vote.handle}</li>
+              <h3>{v.player.handle} picked {v.vote.handle}</h3>
           }</For>
-          </ul>
-
           <h2>Scores:</h2>
-          <ul>
           <For each={players()}>{(p, i) =>
-              <li>{p.handle} has {scores()[p.uuid]} points</li>
+            <h3>{p.handle} has {scores()[p.uuid]} points</h3>
           }</For>
-          </ul>
         </Match>
         <Match when={gameState() === GameState.Finished}>
           <h2>Final Scores!</h2>
-          <ul>
           <For each={players()}>{(p, i) =>
-              <li>{p.handle} has {scores()[p.uuid]} points</li>
+            <h3>{p.handle} has {scores()[p.uuid]} points</h3>
           }</For>
-          </ul>
         </Match>
       </Switch>
 		</div>
