@@ -362,6 +362,8 @@ const App: Component = () => {
           <ul>
             <li>If your phone falls asleep the game may break</li>
             <li>Image generation may take up to 30 seconds on the backend -- please be patient!</li>
+            <li>If you get a blurry image, it probably hit the NSFW filter -- I cannot disable it in the API</li>
+            <li>Please send feedback to geÖrge Ät hÖqqanen dÖt cÖm</li>
           </ul>
         </Match>
         <Match when={gameState() === GameState.Login}>
