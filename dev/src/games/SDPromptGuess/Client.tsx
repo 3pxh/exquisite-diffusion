@@ -34,9 +34,9 @@ const Client: Component = () => {
 
   const subscribeToRoom = (id: number) => {
     supabase
-      .channel(`public:messages:room=eq.${id}`)
+      .channel(`public:rooms:id=eq.${id}`)
       .on('postgres_changes', { 
-        event: 'INSERT', schema: 'public', table: 'messages', filter: `room=eq.${id}` 
+        event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${id}` 
       }, payload => {
         console.log("got payload", payload)
         const msg = payload.new.data;
