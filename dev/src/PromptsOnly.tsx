@@ -44,10 +44,6 @@ interface CaptionData {
   player: PlayerHandle,
   caption: string
 }
-interface PromptData {
-  publicPrompt: string,
-  secretPrompts: string[]
-}
 interface Vote {
   vote: PlayerHandle,
   player: PlayerHandle
@@ -63,10 +59,8 @@ const App: Component = () => {
   const [errorMessage, setErrorMessage] = createSignal<string | null>(null)
   const [players, setPlayers] = createSignal<PlayerHandle[]>([])
   const [scores, setScores] = createSignal<Record<PlayerHandle["uuid"], number>>({})
-  const [prompts, setPrompts] = createSignal<PromptData[]>([])
   const [images, setImages] = createSignal<ImageData[]>([])
   const [captions, setCaptions] = createSignal<CaptionData[]>([])
-  const [secretPrompt, setSecretPrompt] = createSignal<string | null>(null)
   const [captionImages, setCaptionImages] = createSignal<ImageData[]>([])
   const [votes, setVotes] = createSignal<Vote[]>([])
   const [round, setRound] = createSignal<number>(1)
@@ -102,6 +96,7 @@ const App: Component = () => {
   }
 
   const createRoom = async () => {
+    // TODO: disable the create a room button so they don't click it twice while DB goes
     const shortcode = makeShortcode();
     let { data, error, status } = await supabase.from('rooms').insert({
       shortcode: shortcode,
@@ -111,12 +106,14 @@ const App: Component = () => {
       setErrorMessage(`Could not create room, status code ${status}. Check console for errors.`);
       console.log(error);
     } else {
-      stateChangeLobby(shortcode, data.id);
+      setRoomShortcode(shortcode);
+      setRoomId(data.id)
+      setGameState(GameState.Lobby);
+      subscribeToRoom(data.id);
     }
   }
 
   const chooseRole = async (role: GameRole) => {
-    // TODO: disable the create a room button so they don't click it twice while DB goes
     setGameRole(role);
     if (role == GameRole.Host) {
       if (session()) {
@@ -127,10 +124,6 @@ const App: Component = () => {
     } else if (role === GameRole.Client) {
       setGameState(GameState.JoinRoom)
     }
-  }
-
-  const chooseOne = <T,>(A: T[]) : T => {
-    return A[Math.floor(A.length * Math.random())];
   }
 
   const shuffle = <T,>(A: T[]) => {
@@ -170,7 +163,6 @@ const App: Component = () => {
               type: "AwaitingCaptions",
               image: captionImages()[0]
             });
-            // TODO: next we select an image at random, and everyone captions!
           }
         } else if (msg.type === "AwaitingCaptions"  && gameRole() === GameRole.Client) {
           setCaptionImages([msg.image])
@@ -182,10 +174,8 @@ const App: Component = () => {
               player: captionImages()[0].player,
               caption: captionImages()[0].prompt
             }])));
-            // Send message with all the captions for clients to vote
             messageRoom({
               type: "VotingCaptions",
-              // Include the secret prompt!
               captions: captions(),
             });
             setGameState(GameState.AwaitingVotes);
@@ -196,21 +186,17 @@ const App: Component = () => {
         } else if (msg.type === "CaptionVote" && gameRole() === GameRole.Host) {
           setVotes(votes().concat(msg));
           if (votes().length === players().length - 1) {
-            // Go through the votes and count scores?
             const newScores = scores();
             const drawingPlayer = captionImages()[0].player.uuid;
             votes().forEach(v => {
-              if (v.vote.uuid === drawingPlayer) {
-                // If the vote was correctly cast
+              if (v.vote.uuid === drawingPlayer) { // truth
                 newScores[v.player.uuid] += 1000;
                 newScores[drawingPlayer] += 1000;
-              } else {
-                // If it was cast for a lie
+              } else { // lie
                 newScores[v.vote.uuid] += 500;
               }
             })
             setScores(newScores);
-
             setGameState(GameState.Scoring);
             setCaptionImages(captionImages().slice(1)); // Pop off the top.
             if (captionImages().length === 0) {
@@ -226,7 +212,6 @@ const App: Component = () => {
                   });
                 }, 15000)
               } else {
-                // Done with the whole game
                 window.setTimeout(() => {
                   setGameState(GameState.Finished);
                 }, 15000)
@@ -248,12 +233,12 @@ const App: Component = () => {
   }
 
   const joinRoom = async () => {
-    // TODO: disable the button -- if they hit it twice they double join
     setPlayerHandle({
       handle: document.getElementById("handle")?.value,
       uuid: crypto.randomUUID()
     });
     const shortcode = document.getElementById("shortcode")?.value.toUpperCase();
+    setGameState(GameState.Lobby);
     let { data, error, status } = await supabase
 				.from('rooms')
 				.select(`*`)
@@ -265,50 +250,23 @@ const App: Component = () => {
       setErrorMessage(`Could not join room, status code ${status}. Check console for errors.`);
       console.log(error);
     } else {
-      stateChangeLobby(shortcode, id);
+      console.log("room shortcode", shortcode, id)
+      setRoomShortcode(shortcode);
+      setRoomId(id);
+      subscribeToRoom(id);
       messageRoom({type: "NewPlayer"});
     }
   }
 
-  const stateChangeLobby = (shortcode: string, id: number) => {
-    setRoomShortcode(shortcode);
-    setRoomId(id)
-    setGameState(GameState.Lobby);
-    subscribeToRoom(id);
-  }
-
-  const startGame = () => {
-    messageRoom({
-      type: "StartGame"
-    });
-  }
-
-  const sendPrompt = () => {
-    let secrets = [];
-    const els = document.getElementsByClassName("secretPrompt");
-    for (const el of els) {
-      secrets.push(el.value);
-    }
-    messageRoom({
-      type: "ClientPrompt",
-      prompt: {
-        publicPrompt: document.getElementById("gamePrompt")?.value,
-        secretPrompts: secrets
-      }
-    });
-    setGameState(GameState.Introduction)
-  }
-
   const diffuse = async () => {
-    // TODO: disable the button while it's going
-    const p = document.getElementById("diffusionPrompt")?.value;
     // Must store this, because the element goes away on state change.
+    const p = document.getElementById("diffusionPrompt")?.value;
     setGameState(GameState.DoneCreating);
     const { data, error } = await supabase.functions.invoke("diffuse", {
       body: JSON.stringify({
         room: roomId(),
         player: playerHandle(),
-        secretPrompt: secretPrompt(),
+        secretPrompt: "",
         prompt: p
       })
     })
@@ -362,14 +320,13 @@ const App: Component = () => {
         <Match when={gameState() === GameState.Login}>
           {!session() 
             ? <Auth /> 
-            : <><button onclick={() => createRoom()}>Create New Game</button>{errorMessage()}</>}
+            : <button onclick={() => createRoom()}>Create New Game</button>}
         </Match>
         <Match when={gameState() === GameState.JoinRoom}>
           <h2>Join a game</h2>
           <input value="" id="handle" placeholder="Name"></input>
           <input style="text-transform:uppercase;" value="" id="shortcode" placeholder="Room Code"></input>
           <button onclick={() => joinRoom()}>Join room</button>
-          {errorMessage()}
         </Match>
         <Match when={gameState() === GameState.Lobby}>
           <Show when={gameRole() === GameRole.Host} >
@@ -382,9 +339,12 @@ const App: Component = () => {
             </ul>
           </Show>
           <Show when={gameRole() === GameRole.Client} >
-            <h2>Welcome</h2>
-            <p>Only press once everyone is in the room!</p>
-            <button onclick={() => startGame()}>Let's gooooooooooooo</button>
+            <Show when={roomShortcode() !== null && roomId() !== null} 
+              fallback="Joining room...">
+              <h2>Welcome</h2>
+              <p>Only press once everyone is in the room!</p>
+              <button onclick={() => {messageRoom({type: "StartGame"});}}>All Players In!</button>
+            </Show>
           </Show>
         </Match>
         <Match when={gameState() === GameState.Introduction}>
@@ -461,6 +421,9 @@ const App: Component = () => {
           }</For>
         </Match>
       </Switch>
+      <Show when={errorMessage() !== null}>
+        Error! {errorMessage()}
+      </Show>
 		</div>
 	)
 }
