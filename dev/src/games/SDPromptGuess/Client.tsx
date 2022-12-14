@@ -22,6 +22,9 @@ const Client: Component = () => {
   const [captions, setCaptions] = createSignal<CaptionData[]>([])
   const [captionImages, setCaptionImages] = createSignal<DiffusionImage[]>([])
 
+  let lastUpdate = (new Date()).getTime();
+  let lastUpdateMessageTimestamp = 0;
+
   const messageRoom = async (msg: any) => {
     // TODO: Guarantee that we have a room id, do error handling/reporting
     let { data, error, status } = await supabase.from('messages').insert({
@@ -32,25 +35,46 @@ const Client: Component = () => {
     });
   }
 
+  const handleUpdate = (msg: any) => {
+    if (lastUpdateMessageTimestamp === msg.data.timestamp) {
+      // This will happen from the setInterval getting entries from the db
+      // We don't want to process the same state change multiple times,
+      // lest it revert to a previous state.
+      return;
+    } else {
+      lastUpdate = (new Date()).getTime();
+      lastUpdateMessageTimestamp = msg.data.timestamp;
+      if (msg.data.type === "AwaitingImages") {
+        setGameState(GameState.CreatingImages);
+      } else if (msg.data.type === "AwaitingCaptions") {
+        setCaptionImages([msg.data.image])
+        setGameState(GameState.CaptioningImages);
+      } else if (msg.data.type === "VotingCaptions") {
+        setCaptions(msg.data.captions.filter((c:CaptionData) => c.player.uuid !== playerHandle()?.uuid))
+        setGameState(GameState.VotingCaptions);
+      }
+    }
+  }
+
   const subscribeToRoom = (id: number) => {
     supabase
       .channel(`public:rooms:id=eq.${id}`)
       .on('postgres_changes', { 
         event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${id}` 
       }, payload => {
-        console.log("got payload", payload)
-        const msg = payload.new.data;
-        if (msg.type === "AwaitingImages") {
-          setGameState(GameState.CreatingImages);
-        } else if (msg.type === "AwaitingCaptions") {
-          setCaptionImages([msg.image])
-          setGameState(GameState.CaptioningImages);
-        } else if (msg.type === "VotingCaptions") {
-          setCaptions(msg.captions.filter((c:CaptionData) => c.player.uuid !== playerHandle()?.uuid))
-          setGameState(GameState.VotingCaptions);
-        }
+        console.log("got payload", payload);
+        handleUpdate(payload.new);        
       }).subscribe();
   }
+
+  // This is in case their phone locks. 
+  window.setInterval(async () => {
+    if (roomId() !== null && (new Date()).getTime() - lastUpdate > 20000) {
+      let { data, error, status } = await supabase.from('rooms').select(`*`).eq('id', roomId()).single();
+      // TODO: Any semblance of error handling.
+      handleUpdate(data);
+    }
+  }, 2000);
 
   const joinRoom = async () => {
     setPlayerHandle({

@@ -49,7 +49,7 @@ const Host: Component = () => {
   const messageRoom = async (msg: any) => {
     // TODO: Guarantee that we have a room id, do error handling/reporting
     let { data, error, status } = await supabase.from('rooms').update({
-      data: msg,
+      data: { ...msg, timestamp: (new Date()).getTime() },
       host_state: GameState[gameState()]
     }).eq('id', roomId()).select();
   }
