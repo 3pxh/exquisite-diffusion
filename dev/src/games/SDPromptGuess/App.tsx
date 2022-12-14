@@ -16,8 +16,8 @@ const App: Component = () => {
 		<div class="container">
       <Switch>
         <Match when={role() === null}>
-          <button onclick={() => {setRole(GameRole.Host)}} ontouchstart={() => {setRole(GameRole.Host)}}>Create New Game</button>
-          <button onclick={() => {setRole(GameRole.Client)}} ontouchstart={() => {setRole(GameRole.Client)}}>Join A Game</button>
+          <button onclick={() => {setRole(GameRole.Host)}}>Create New Game</button>
+          <button onclick={() => {setRole(GameRole.Client)}}>Join A Game</button>
         </Match>
         <Match when={role() === GameRole.Host}>
           <Host />
