@@ -136,7 +136,8 @@ const Client: Component = () => {
           <h2>Join a game</h2>
           <input value="" id="handle" placeholder="Name"></input>
           <input style="text-transform:uppercase;" value="" id="shortcode" placeholder="Room Code"></input>
-          <button onclick={() => joinRoom()} ontouchstart={() => joinRoom()}>Join room</button>
+          <button onclick={() => joinRoom()}>Join room</button>
+          <p>Can't click join on an iOS device? You may need a software update.</p>
         </Match>
         <Match when={gameState() === GameState.Lobby}>
           <Show when={roomShortcode() !== null && roomId() !== null} 
