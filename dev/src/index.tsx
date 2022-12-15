@@ -2,6 +2,7 @@
 import { render } from 'solid-js/web'
 
 import './index.css'
-import App from './games/SDPromptGuess/App'
+import GameSelection from './games/GameSelection'
 
-render(() => <App />, document.getElementById('root') as HTMLElement)
+
+render(() => <GameSelection />, document.getElementById('root') as HTMLElement)
