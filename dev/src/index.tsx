@@ -2,7 +2,7 @@
 import { render } from 'solid-js/web'
 
 import './index.css'
-import GameSelection from './games/GameSelection'
+import AuthSelection from './games/AuthSelection'
 
 
-render(() => <GameSelection />, document.getElementById('root') as HTMLElement)
+render(() => <AuthSelection />, document.getElementById('root') as HTMLElement)
