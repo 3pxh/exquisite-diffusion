@@ -2,18 +2,22 @@ import { Component, createEffect, createSignal, Switch, Match } from 'solid-js'
 import { AuthSession } from '@supabase/supabase-js'
 import { supabase } from '../supabaseClient'
 
+import Host from './NeoXPromptGuess/Host'
+import JoinGame from './JoinGame'
+
 enum AuthType {
   ANON,
   EMAIL
 }
 
+// TODO: auto-anon when on mobile?
 const AuthSelection: Component = () => {
 	const [session, setSession] = createSignal<AuthSession | null>(null);
   const [email, setEmail] = createSignal<string>("");
   const [authState, setAuthState] = createSignal<AuthType | null>(null);
 
   const updateSession = (s: AuthSession | null) => {
-    if (s !== null) {
+    if (s !== null && session()?.user.id !== s?.user.id) {
       setSession(s);
       if (s?.user.email?.includes("anon.3pxh.com")) {
         setAuthState(AuthType.ANON);
@@ -76,7 +80,9 @@ const AuthSelection: Component = () => {
         </Match>
         <Match when={session() !== null && authState() === AuthType.EMAIL}>
           {/* CREATE OR JOIN */}
-          <p>Join or create a room while signed in</p>
+          <p>Room creating</p>
+          {/* TODO: options for choosing a game to create a room + join a room widget */}
+          <Host />
         </Match>
         <Match when={session() === null && authState() === AuthType.ANON}>
           <p>Signing in anonymously...</p>
@@ -84,6 +90,7 @@ const AuthSelection: Component = () => {
         <Match when={session() !== null && authState() === AuthType.ANON}>
           {/* ROOM JOIN on Anon auth */}
           <p>You are logged in anonymously. Join a room below!</p>
+          <JoinGame session={session()} />
         </Match>
       </Switch>
 		</div>

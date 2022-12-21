@@ -4,6 +4,8 @@ import { AuthSession } from '@supabase/supabase-js'
 import Auth from '../../Auth'
 import {PlayerHandle, CaptionData, Vote, TextCompletion} from './GameTypes'
 
+const GAME_NAME = "NeoXPromptGuess";
+
 enum GameState {
   Lobby,
   AwaitingImages, 
@@ -41,7 +43,8 @@ const Host: Component = () => {
 		supabase.auth.onAuthStateChange((_event, session) => {
 			setSession(session);
       if (session !== null) {
-        createRoom();
+        // In the new flow we're only rendering this after authenticated.
+        // createRoom();
       }
 		})
 	})
@@ -64,6 +67,8 @@ const Host: Component = () => {
     }
     let { data, error, status } = await supabase.from('rooms').insert({
       shortcode: shortcode,
+      owner: session()?.user.id,
+      game: GAME_NAME,
       host_state: GameState[GameState.Lobby] // Convert to string in case the enum changes
     }).select().single();
     if (data === null || error !== null) {
