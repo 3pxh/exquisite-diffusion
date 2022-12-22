@@ -1,6 +1,6 @@
 import { Component, createSignal, Switch, Match } from 'solid-js'
-import App from './SDPromptGuess/App'
-import NeoXPromptGuess from './NeoXPromptGuess/NeoXPromptGuess'
+import App from './games/SDPromptGuess/App'
+import NeoXPromptGuess from './games/NeoXPromptGuess/NeoXPromptGuess'
 
 // TODO: detect mobile, and present join a room. After join, check the type
 // and load the appropriate game.

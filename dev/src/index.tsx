@@ -1,8 +1,8 @@
 /* @refresh reload */
 import { render } from 'solid-js/web'
-
 import './index.css'
-import AuthSelection from './games/AuthSelection'
+import { AuthProvider } from "./AuthProvider";
+import App from './App'
 
-
-render(() => <AuthSelection />, document.getElementById('root') as HTMLElement)
+render(() => <AuthProvider session={null}><App /></AuthProvider>, 
+       document.getElementById('root') as HTMLElement)

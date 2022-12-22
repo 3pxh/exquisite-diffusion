@@ -1,6 +1,6 @@
 import { Component, createSignal, Switch, Match } from 'solid-js'
 import { AuthSession } from '@supabase/supabase-js'
-import { supabase } from '../supabaseClient'
+import { supabase } from './supabaseClient'
 
 enum JoinState {
   ENTERING_CODE,
@@ -26,10 +26,13 @@ const JoinGame: Component<{session: AuthSession | null}> = (props) => {
     const roomId = data?.roomId;
     if (error) {
       setError(error);
+    } else if (data.roomId === null) {
+      setError(`Room ${shortcode().toUpperCase()} not a Lobby, try again.`);
+      setState(JoinState.ENTERING_CODE);
     } else {
       const { data, error } = await supabase.from('rooms').select('*').eq('id', roomId).single()
       const GAME_TYPE = data.game;
-      // TODO: load the appropriate game!!
+      // TODO: load the appropriate game, message the room that you've joined
       setState(JoinState.JOINED);
     }
   }
@@ -39,7 +42,9 @@ const JoinGame: Component<{session: AuthSession | null}> = (props) => {
       <Switch>
         <Match when={state() === JoinState.ENTERING_CODE}>
           <div>Room code: <input 
+            style="text-transform: uppercase;"
             placeholder="LMAO"
+            maxlength="4"
             onChange={(e) => setShortcode(e.currentTarget.value)}
           /></div>
           <button onclick={() => joinRoom()}>Join game</button>

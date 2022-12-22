@@ -24,7 +24,7 @@ body {
   box-sizing: border-box;
 }
 
-.AuthSelection {
+.App {
   align-items: center;
   display: flex;
   flex-direction: column;

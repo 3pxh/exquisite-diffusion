@@ -31,16 +31,13 @@ serve(async (req) => {
     .eq('shortcode', shortcode)
     .order('id', { ascending: false }).single();
 
-  console.log("Got the room", data, error)
 
   if (error || data === null) {
-    console.log("error", error)
     return new Response(
       JSON.stringify({ roomId: null, error: error, status: status }),
       { headers: {...corsHeaders, "Content-Type": "application/json" } },
     )
   } else if (data?.host_state === "Lobby") {
-    console.log("lobby, inserting participant", userId)
     await supabaseClient.from('participants').insert({
       room: data?.id,
       user: userId
@@ -50,7 +47,6 @@ serve(async (req) => {
       { headers: {...corsHeaders, "Content-Type": "application/json" } },
     )
   } else {
-    console.log("not lobby")
     return new Response(
       JSON.stringify({
         error: "Game has already begun, room not accepting new players.",
