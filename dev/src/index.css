@@ -30,6 +30,10 @@ body {
   flex-direction: column;
 }
 
+.App > div {
+  margin: 4px 0;
+}
+
 .AuthSelection-AuthType {
   border: 1px solid #DDD;
   border-radius: var(--custom-border-radius);
@@ -46,6 +50,13 @@ body {
 
 .AuthSelection-AuthType > button {
   font-size: 12pt;
+}
+
+.GameSelection, .JoinGame {
+  width: 600px;
+}
+.GameSelection > button {
+  margin: 4px 0;
 }
 
 button {

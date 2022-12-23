@@ -1,6 +1,7 @@
 import { Component, createSignal, Switch, Match } from 'solid-js'
-import { AuthSession } from '@supabase/supabase-js'
 import { supabase } from './supabaseClient'
+import { useAuth } from "./AuthProvider";
+import { GameType, GameTypeMap, GameTypeString } from './GameTypes'
 
 enum JoinState {
   ENTERING_CODE,
@@ -8,19 +9,23 @@ enum JoinState {
   JOINED
 }
 
-const JoinGame: Component<{session: AuthSession | null}> = (props) => {
+const JoinGame: Component<{chooseGame: (g: GameType, roomId?: number) => void}> = (props) => {
+  const { session, setPlayerHandle } = useAuth();
+
   const [state, setState] = createSignal<JoinState>(JoinState.ENTERING_CODE);
   const [shortcode, setShortcode] = createSignal<string>("");
+  const [name, setName] = createSignal<string>("");
   const [error, setError] = createSignal<string>("");
 
   // TODO: pass in prop handler to call upon successful join?
 
   const joinRoom = async () => {
+    setPlayerHandle(name());
     setState(JoinState.JOINING);
     const { data, error } = await supabase.functions.invoke("joinroom", {
       body: JSON.stringify({
-        shortcode: shortcode(),
-        userId: props.session?.user.id
+        shortcode: shortcode().toUpperCase(),
+        userId: session()?.user.id
       })
     });
     const roomId = data?.roomId;
@@ -31,9 +36,10 @@ const JoinGame: Component<{session: AuthSession | null}> = (props) => {
       setState(JoinState.ENTERING_CODE);
     } else {
       const { data, error } = await supabase.from('rooms').select('*').eq('id', roomId).single()
-      const GAME_TYPE = data.game;
-      // TODO: load the appropriate game, message the room that you've joined
-      setState(JoinState.JOINED);
+      // TODO: set the player's name somewhere so when we send a NewPlayer message we pass it along.
+      // We could store it on the AuthProvider..........
+      props.chooseGame(GameTypeMap[data.game as GameTypeString], roomId);
+      setState(JoinState.JOINED); // Redundant since choosing the game should stop showing this view.
     }
   }
 
@@ -41,11 +47,16 @@ const JoinGame: Component<{session: AuthSession | null}> = (props) => {
 		<div class="JoinGame">
       <Switch>
         <Match when={state() === JoinState.ENTERING_CODE}>
+          <h2>Join a game</h2>
           <div>Room code: <input 
             style="text-transform: uppercase;"
             placeholder="LMAO"
             maxlength="4"
             onChange={(e) => setShortcode(e.currentTarget.value)}
+          /></div>
+          <div>Name: <input 
+            placeholder="happy_ewok"
+            onChange={(e) => setName(e.currentTarget.value)}
           /></div>
           <button onclick={() => joinRoom()}>Join game</button>
         </Match>

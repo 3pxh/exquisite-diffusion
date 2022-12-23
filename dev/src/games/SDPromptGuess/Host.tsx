@@ -14,7 +14,7 @@ enum GameState {
 }
 
 
-const Host: Component = () => {
+const SDPromptGuessHost: Component = () => {
 	const [session, setSession] = createSignal<AuthSession | null>(null)
   const [gameState, setGameState] = createSignal<GameState>(GameState.Lobby)
   const [roomShortcode, setRoomShortcode] = createSignal<string | null>(null)
@@ -255,4 +255,4 @@ const Host: Component = () => {
 	)
 }
 
-export default Host
+export default SDPromptGuessHost

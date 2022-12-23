@@ -6,7 +6,9 @@ import { supabase } from './supabaseClient'
 const AuthContext = createContext<{
   session: Accessor<AuthSession | null>,
   authState: Accessor<AuthType | null>,
-  login: (t: string | null) => void
+  login: (t: string | null) => void,
+  playerHandle: Accessor<string>,
+  setPlayerHandle: Setter<string>,
 }>();
 
 export enum AuthType {
@@ -17,6 +19,7 @@ export enum AuthType {
 export function AuthProvider(props: {children?: JSX.Element, session: AuthSession | null }) {
   const [session, setSession] = createSignal<AuthSession | null>(props.session);
   const [authState, setAuthState] = createSignal<AuthType | null>(null);
+  const [playerHandle, setPlayerHandle] = createSignal<string>("anonymous");
 
   const login = async (email: string | null) => {
     if (email === null) {
@@ -62,6 +65,8 @@ export function AuthProvider(props: {children?: JSX.Element, session: AuthSessio
     session: session,
     authState: authState,
     login: login,
+    setPlayerHandle: setPlayerHandle,
+    playerHandle: playerHandle,
   };
 
   return (

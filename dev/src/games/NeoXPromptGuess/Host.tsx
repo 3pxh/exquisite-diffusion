@@ -1,23 +1,27 @@
 import { Component, createEffect, createSignal, Switch, Match, Show, For } from 'solid-js'
 import { supabase } from '../../supabaseClient'
-import { AuthSession } from '@supabase/supabase-js'
-import Auth from '../../Auth'
+import { useAuth } from "../../AuthProvider";
+
 import {PlayerHandle, CaptionData, Vote, TextCompletion} from './GameTypes'
 
 const GAME_NAME = "NeoXPromptGuess";
 
 enum GameState {
   Lobby,
-  AwaitingImages, 
-  AwaitingCaptions,
-  AwaitingVotes,
+  WritingPrompts, 
+  CreatingLies,
+  Voting,
   Scoring,
-  Finished
+  Finished,
+  Waiting, // Client only
 }
 
 
-const Host: Component = () => {
-	const [session, setSession] = createSignal<AuthSession | null>(null)
+const NeoXPromptGuessHost: Component<{roomId?: number}> = (props) => {
+  const { session, playerHandle, setPlayerHandle } = useAuth();
+
+  const [isHost, setIsHost] = createSignal<boolean>(false)
+  const [isHostPlayer, setIsHostPlayer] = createSignal<boolean>(false)
   const [gameState, setGameState] = createSignal<GameState>(GameState.Lobby)
   const [roomShortcode, setRoomShortcode] = createSignal<string | null>(null)
   const [roomId, setRoomId] = createSignal<number | null>(null)
@@ -32,24 +36,33 @@ const Host: Component = () => {
 
   const NUM_ROUNDS = 3;
 
-	createEffect(async () => {
-		supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session !== null) {
-        createRoom();
-      }
-			setSession(session);
-		})
+  if (props.roomId !== undefined) {
+    setRoomId(props.roomId);
+  }
 
-		supabase.auth.onAuthStateChange((_event, session) => {
-			setSession(session);
-      if (session !== null) {
-        // In the new flow we're only rendering this after authenticated.
-        // createRoom();
-      }
-		})
+	createEffect(async () => {
+    if (props.roomId === undefined) {
+      setIsHost(true);
+      createRoom();
+    } else {
+      clientMessage({
+        type: "NewPlayer"
+      })
+      subscribeToRoom(props.roomId!);
+    }
 	})
 
-  const messageRoom = async (msg: any) => {
+  const clientMessage = async (msg: any) => {
+    let { data, error, status } = await supabase.from('messages').insert({
+      room: roomId(),
+      user_id: session()?.user.id, // Needed for RLS
+      // TODO: Make this less possible to collide with callers of clientMessage
+      //  - I accidentally used "player" at one point to pass a vote -_-
+      data: {...msg, player: {handle: playerHandle(), uuid: session()?.user.id}}
+    });
+  }
+
+  const hostMessage = async (msg: any) => {
     // TODO: Guarantee that we have a room id, do error handling/reporting
     let { data, error, status } = await supabase.from('rooms').update({
       data: { ...msg, timestamp: (new Date()).getTime() },
@@ -58,9 +71,6 @@ const Host: Component = () => {
   }
 
   const createRoom = async () => {
-    if (roomShortcode() !== null && roomId() !== null) {
-      return; // Already have a room.
-    }
     let shortcode = '';
     for ( var i = 0; i < 4; i++ ) {
       shortcode += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.charAt(Math.floor(Math.random() * 26));
@@ -79,7 +89,7 @@ const Host: Component = () => {
       setRoomId(data.id)
       console.log('joining', shortcode, data.id)
       setGameState(GameState.Lobby);
-      subscribeToRoom(data.id);
+      subscribeToMessages(data.id);
     }
   }
 
@@ -89,7 +99,73 @@ const Host: Component = () => {
             .map(({ value }) => value);
   }
 
-  const subscribeToRoom = (id: number) => {
+  let lastUpdateMessageTimestamp = 0;
+  let lastUpdate = (new Date()).getTime();
+  const handleClientUpdate = (msg: any) => {
+    if (lastUpdateMessageTimestamp === msg.data.timestamp) {
+      // This will happen from the setInterval getting entries from the db
+      // We don't want to process the same state change multiple times,
+      // lest it revert to a previous state.
+      return;
+    } else {
+      lastUpdate = (new Date()).getTime();
+      lastUpdateMessageTimestamp = msg.data.timestamp;
+      if (msg.data.type === "WritingPrompts") {
+        setGameState(GameState.WritingPrompts);
+      } else if (msg.data.type === "CreatingLies") {
+        setCaptionTexts([msg.data.text])
+        setGameState(GameState.CreatingLies);
+      } else if (msg.data.type === "VotingCaptions") {
+        setCaptions(msg.data.captions.filter((c:CaptionData) => c.player.uuid !== session()?.user.id))
+        setGameState(GameState.Voting);
+      } else if (msg.data.type === "Scoring") {
+        // TODO: Get scores
+        setGameState(GameState.Scoring);
+      } else if (msg.data.type === "Finished") {
+        // TODO: Get scores
+        setGameState(GameState.Finished);
+      }
+    }
+  }
+  // CLIENTS subscribe to ROOM
+  const subscribeToRoom = (roomId: number) => {
+    supabase
+    .channel(`public:rooms:id=eq.${roomId}`)
+    .on('postgres_changes', { 
+      event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` 
+    }, payload => {
+      console.log("got payload", payload);
+      handleClientUpdate(payload.new)
+    }).subscribe();
+  }
+
+  // This is in case their phone locks. For clients only.
+  // window.setInterval(async () => {
+  //   if (roomId() !== null && (new Date()).getTime() - lastUpdate > 20000) {
+  //     let { data, error, status } = await supabase.from('rooms').select(`*`).eq('id', roomId()).single();
+  //     // TODO: Any semblance of error handling.
+  //     handleUpdate(data);
+  //   }
+  // }, 2000);
+
+  const startGame = () => {
+    const hostName = (document.getElementById("hostName") as HTMLInputElement).value;
+    if (hostName.length > 0) {
+      setIsHostPlayer(true);
+      setPlayerHandle(hostName); // Gross.
+      setPlayers(players().concat([{handle: hostName, uuid: session()!.user.id}]));
+    }
+    setGameState(GameState.WritingPrompts);
+    const initScores:Record<PlayerHandle["uuid"], number> = {};
+    players().forEach(p => { initScores[p.uuid] = 0; });
+    setScores(initScores);
+    hostMessage({
+      type: "WritingPrompts"
+    });
+  }
+
+  // HOST subscribes to MESSAGES
+  const subscribeToMessages = (id: number) => {
     supabase
       .channel(`public:messages:room=eq.${id}`)
       .on('postgres_changes', { 
@@ -99,22 +175,14 @@ const Host: Component = () => {
         const msg = payload.new.data;
         if (msg.type === "NewPlayer" && gameState() === GameState.Lobby) {
           setPlayers(players().concat([msg.player]));
-        } else if (msg.type === "StartGame") {
-          setGameState(GameState.AwaitingImages);
-          const initScores:Record<PlayerHandle["uuid"], number> = {};
-          players().forEach(p => { initScores[p.uuid] = 0; });
-          setScores(initScores);
-          messageRoom({
-            type: "AwaitingImages"
-          });
         } else if (msg.type === "GeneratedText") {
           setTexts(texts().concat(msg));
           if (texts().length === players().length) {
             setCaptions([]);
             setCaptionTexts(JSON.parse(JSON.stringify(texts()))); // hacky deep copy
-            setGameState(GameState.AwaitingCaptions);
-            messageRoom({
-              type: "AwaitingCaptions",
+            setGameState(GameState.CreatingLies);
+            hostMessage({
+              type: "CreatingLies",
               text: captionTexts()[0]
             });
           }
@@ -125,11 +193,11 @@ const Host: Component = () => {
               player: captionTexts()[0].player,
               caption: captionTexts()[0].prompt
             }])));
-            messageRoom({
+            hostMessage({
               type: "VotingCaptions",
               captions: captions(),
             });
-            setGameState(GameState.AwaitingVotes);
+            setGameState(GameState.Voting);
           }
         } else if (msg.type === "CaptionVote") {
           setVotes(votes().concat(msg));
@@ -146,28 +214,35 @@ const Host: Component = () => {
             })
             setScores(newScores);
             setGameState(GameState.Scoring);
+            hostMessage({
+              type: "Scoring",
+              //TODO: pass the scores, and also which player created the prompt (to say "Correct!")
+            });
             setCaptionTexts(captionTexts().slice(1));
             if (captionTexts().length === 0) {
               if (round() < NUM_ROUNDS) {
                 setRound(round() + 1);
                 window.setTimeout(() => {
-                  setGameState(GameState.AwaitingImages);
+                  setGameState(GameState.WritingPrompts);
                   setTexts([]);
                   setVotes([]);
-                  messageRoom({
-                    type: "AwaitingImages",
+                  hostMessage({
+                    type: "WritingPrompts",
                   });
                 }, 10000)
               } else {
                 setGameState(GameState.Finished);
+                hostMessage({
+                  type: "Finished",
+                });
               }
             } else {
               window.setTimeout(() => {
                 setCaptions([]);
                 setVotes([]);
-                setGameState(GameState.AwaitingCaptions);
-                messageRoom({
-                  type: "AwaitingCaptions",
+                setGameState(GameState.CreatingLies);
+                hostMessage({
+                  type: "CreatingLies",
                   text: captionTexts()[0]
                 });
               }, 15000)
@@ -176,13 +251,37 @@ const Host: Component = () => {
         }
       }).subscribe();
   }
+  
+  const generateText = async () => {
+    // Must store this, because the element goes away on state change.
+    const p = (document.getElementById("GPTPrompt") as HTMLInputElement).value;
+    setGameState(GameState.Waiting);
+    const { data, error } = await supabase.functions.invoke("textsynth", {
+      body: JSON.stringify({
+        room: roomId(),
+        player: {handle: playerHandle(), uuid: session()?.user.id },
+        prompt: p
+      })
+    });
+    if (error) {
+      setErrorMessage(`Error when runnng textsynth: ${error}`);
+    }
+  }
+
+  const caption = async () => {
+    const c = (document.getElementById("GPTPrefaceLie") as HTMLInputElement).value
+    clientMessage({ type: "CaptionResponse", caption: c });
+    setGameState(GameState.Waiting);
+  }
+
+  const vote = async (player: PlayerHandle) => {
+    clientMessage({ type: "CaptionVote", vote: player });
+    setGameState(GameState.Waiting);
+  }
 
 	return (
     <>
       <Switch fallback={<p>Invalid host state: {gameState()}</p>}>
-        <Match when={session() === null}>
-          <Auth />
-        </Match>
         <Match when={gameState() === GameState.Lobby && roomId() === null}>
           <h2>Initializing room...</h2>
         </Match>
@@ -191,9 +290,15 @@ const Host: Component = () => {
           {players().length} in lobby:
           <ul>
             <For each={players()}>{(p, i) =>
-              <li>{p.handle}</li>
+              <li>{p?.handle ?? "Anonymous"}</li>
             }</For>
           </ul>
+
+          <Show when={isHost()}>
+            <div>Your name: <input id="hostName" placeholder="jubjub"></input></div>
+            <div>(leave blank if host is not a player)</div>
+            <button onclick={startGame}><h2>Everybody is here, let's start!</h2></button>
+          </Show>
 
           <h2>Instructions:</h2>
           <ol>
@@ -216,16 +321,29 @@ const Host: Component = () => {
             <li>Please send feedback to geÖrge Ät hÖqqanen dÖt cÖm</li>
           </ul>
         </Match>
-        <Match when={gameState() === GameState.AwaitingImages}>
+        <Match when={gameState() === GameState.WritingPrompts}>
           <h2>Round {round()} of {NUM_ROUNDS}, dispatching prompts...</h2>
           <h3>Text generation may take a few seconds</h3>
           Beep boop beep
+          <Show when={!isHost() || isHostPlayer()}>
+            <h2>Make something strange!</h2>
+            <input id="GPTPrompt" placeholder="Once upon a time"></input>
+            <button onclick={() => generateText()}>Generate!</button>
+          </Show>
         </Match>
-        <Match when={gameState() === GameState.AwaitingCaptions}>
+        <Match when={gameState() === GameState.CreatingLies}>
           <h2>Round {round()} of {NUM_ROUNDS}, what generated:</h2>
           <h3 style="white-space: pre-wrap;">{captionTexts()[0].text}</h3>
+          <Show when={!isHost() || isHostPlayer()}>
+            <Show when={captionTexts()[0].player.uuid !== session()?.user.id}
+                  fallback={"You are responsible for this masterpiece. Well done."} >
+              <p>What came before these words?</p>
+              <input id="GPTPrefaceLie" type="text" placeholder="Once upon a time"></input>
+              <button onclick={() => caption()}>Oh yeah!</button>
+            </Show>
+          </Show>
         </Match>
-        <Match when={gameState() === GameState.AwaitingVotes}>
+        <Match when={gameState() === GameState.Voting}>
           <h2>Who made whatdo happen?</h2>
           <h3 style="white-space: pre-wrap;">{captionTexts()[0].text}</h3>
           <ol>
@@ -233,6 +351,15 @@ const Host: Component = () => {
             <li><h3>{c.caption}</h3></li>
           }</For>
           </ol>
+          <Show when={!isHost() || isHostPlayer()}>
+            <Show when={captionTexts()[0].player.uuid !== session()?.user.id}
+                  fallback={"You are still responsible for this masterpiece. Nice."} >
+              <h2>Which one is the truth?</h2>
+              <For each={captions()}>{(c, i) =>
+                  <p><button onclick={() => vote(c.player)}>{c.caption}</button></p>
+              }</For>
+            </Show>
+          </Show>
         </Match>
         <Match when={gameState() === GameState.Scoring}>
           <h2>What did people guess?</h2>
@@ -250,6 +377,9 @@ const Host: Component = () => {
             <h3>{p.handle} has {scores()[p.uuid]} points</h3>
           }</For>
         </Match>
+        <Match when={gameState() === GameState.Waiting}>
+          Waiting for other players to finish up...
+        </Match>
       </Switch>
       <Show when={errorMessage() !== null}>
         Error! {errorMessage()}
@@ -258,4 +388,4 @@ const Host: Component = () => {
 	)
 }
 
-export default Host
+export default NeoXPromptGuessHost

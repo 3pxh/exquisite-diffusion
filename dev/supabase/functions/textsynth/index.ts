@@ -33,6 +33,7 @@ serve(async (req) => {
 
   let { data, error, status } = await supabaseClient.from('messages').insert({
     room: room,
+    user_id: player.uuid,
     data: {
       type: "GeneratedText",
       player: player,

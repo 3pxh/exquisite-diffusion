@@ -1,13 +1,42 @@
-import { Component, Switch, Match } from 'solid-js'
+import { Component, createSignal, Switch, Match } from 'solid-js'
 import { useAuth, AuthType } from "./AuthProvider";
 import AuthSelection from './AuthSelection'
 
-import Host from './games/NeoXPromptGuess/Host'
-import JoinGame from './JoinGame'
+import NeoXPromptGuessHost from './games/NeoXPromptGuess/Host'
+import SDPromptGuessHost from './games/SDPromptGuess/Host'
 
+import JoinGame from './JoinGame'
+import GameSelection from './GameSelection'
+import { GameType } from './GameTypes'
+
+interface Game {
+  roomId?: number,
+  game: GameType
+}
+
+const RenderGame: Component<{game: Game}> = (props) => {
+  return (
+    <Switch>
+      <Match when={props.game.game === GameType.NeoXPromptGuess}>
+        <NeoXPromptGuessHost roomId={props.game.roomId} />
+      </Match>
+      <Match when={props.game.game === GameType.SDPromptGuess}>
+        This game mode hasn't been ported.
+        {/* <SDPromptGuessHost roomId={props.roomId} /> */}
+      </Match>
+    </Switch>
+  )
+}
 
 const App: Component = () => {
   const { session, authState } = useAuth();
+  const [game, setGame] = createSignal<Game | null>(null)
+  const chooseGame = (g: GameType, roomId?: number) => {
+    setGame({
+      game: g,
+      roomId: roomId
+    });
+  }
 
 	return (
     <div class="App">
@@ -15,16 +44,18 @@ const App: Component = () => {
         <Match when={session() === null}>
           <AuthSelection />
         </Match>
-        <Match when={session() !== null && authState() === AuthType.ANON}>
-          {/* ROOM JOIN on Anon auth */}
+        <Match when={session() !== null && game() === null && authState() === AuthType.ANON}>
           <p>You are logged in anonymously. Join a room below!</p>
-          <JoinGame session={session()} />
+          <JoinGame chooseGame={chooseGame} />
         </Match>
-        <Match when={session() !== null && authState() === AuthType.EMAIL}>
-          {/* CREATE OR JOIN */}
-          <p>Room creating</p>
-          {/* TODO: options for choosing a game to create a room + join a room widget */}
-          <Host />
+        <Match when={session() !== null && game() === null && authState() === AuthType.EMAIL}>
+          <p>Logged in as {session()?.user.email}</p>
+          <GameSelection chooseGame={chooseGame} />
+          <h2>--- or ---</h2>
+          <JoinGame chooseGame={chooseGame} />
+        </Match>
+        <Match when={session() !== null && game() !== null}>
+          <RenderGame game={game()!} />
         </Match>
       </Switch>
     </div>
