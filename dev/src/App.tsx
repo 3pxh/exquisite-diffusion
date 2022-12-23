@@ -2,7 +2,7 @@ import { Component, createSignal, Switch, Match } from 'solid-js'
 import { useAuth, AuthType } from "./AuthProvider";
 import AuthSelection from './AuthSelection'
 
-import NeoXPromptGuessHost from './games/NeoXPromptGuess/Host'
+import NeoXPromptGuessHost from './games/NeoXPromptGuess'
 import SDPromptGuessHost from './games/SDPromptGuess/Host'
 
 import JoinGame from './JoinGame'

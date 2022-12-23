@@ -1,10 +1,28 @@
 import { Component, createEffect, createSignal, Switch, Match, Show, For } from 'solid-js'
-import { supabase } from '../../supabaseClient'
-import { useAuth } from "../../AuthProvider";
+import { supabase } from '../supabaseClient'
+import { useAuth } from "../AuthProvider";
 
-import {PlayerHandle, CaptionData, Vote, TextCompletion} from './GameTypes'
+import { GameTypeString } from '../GameTypes'
 
-const GAME_NAME = "NeoXPromptGuess";
+const GAME_NAME: GameTypeString = "NeoXPromptGuess";
+
+interface PlayerHandle {
+  handle: string,
+  uuid: string
+}
+interface TextCompletion {
+  player: PlayerHandle,
+  prompt: string,
+  text: string
+}
+interface CaptionData {
+  player: PlayerHandle,
+  caption: string
+}
+interface Vote {
+  vote: PlayerHandle,
+  player: PlayerHandle
+}
 
 enum GameState {
   Lobby,
@@ -13,11 +31,11 @@ enum GameState {
   Voting,
   Scoring,
   Finished,
-  Waiting, // Client only
+  Waiting, // Players only
 }
 
 
-const NeoXPromptGuessHost: Component<{roomId?: number}> = (props) => {
+const NeoXPromptGuess: Component<{roomId?: number}> = (props) => {
   const { session, playerHandle, setPlayerHandle } = useAuth();
 
   const [isHost, setIsHost] = createSignal<boolean>(false)
@@ -388,4 +406,4 @@ const NeoXPromptGuessHost: Component<{roomId?: number}> = (props) => {
 	)
 }
 
-export default NeoXPromptGuessHost
+export default NeoXPromptGuess
