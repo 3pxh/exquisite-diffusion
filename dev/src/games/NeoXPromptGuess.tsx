@@ -129,6 +129,7 @@ const NeoXPromptGuess: Component<{roomId?: number}> = (props) => {
       lastUpdate = (new Date()).getTime();
       lastUpdateMessageTimestamp = msg.data.timestamp;
       if (msg.data.type === "WritingPrompts") {
+        setPlayers(msg.data.players);
         setGameState(GameState.WritingPrompts);
       } else if (msg.data.type === "CreatingLies") {
         setCaptionTexts([msg.data.text])
@@ -137,7 +138,8 @@ const NeoXPromptGuess: Component<{roomId?: number}> = (props) => {
         setCaptions(msg.data.captions.filter((c:CaptionData) => c.player.uuid !== session()?.user.id))
         setGameState(GameState.Voting);
       } else if (msg.data.type === "Scoring") {
-        // TODO: Get scores
+        setScores(msg.data.scores);
+        setVotes(msg.data.votes);
         setGameState(GameState.Scoring);
       } else if (msg.data.type === "Finished") {
         // TODO: Get scores
@@ -178,7 +180,8 @@ const NeoXPromptGuess: Component<{roomId?: number}> = (props) => {
     players().forEach(p => { initScores[p.uuid] = 0; });
     setScores(initScores);
     hostMessage({
-      type: "WritingPrompts"
+      type: "WritingPrompts",
+      players: players(),
     });
   }
 
@@ -234,7 +237,8 @@ const NeoXPromptGuess: Component<{roomId?: number}> = (props) => {
             setGameState(GameState.Scoring);
             hostMessage({
               type: "Scoring",
-              //TODO: pass the scores, and also which player created the prompt (to say "Correct!")
+              scores: newScores,
+              votes: votes(),
             });
             setCaptionTexts(captionTexts().slice(1));
             if (captionTexts().length === 0) {
