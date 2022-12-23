@@ -21,7 +21,7 @@ const RenderGame: Component<{game: Game}> = (props) => {
         <NeoXPromptGuessHost roomId={props.game.roomId} />
       </Match>
       <Match when={props.game.game === GameType.SDPromptGuess}>
-        This game mode hasn't been ported.
+        Game mode is under construction.
         {/* <SDPromptGuessHost roomId={props.roomId} /> */}
       </Match>
     </Switch>
