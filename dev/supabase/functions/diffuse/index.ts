@@ -14,7 +14,7 @@ serve(async (req) => {
 		return new Response('ok', { headers: corsHeaders });
 	}
 
-  const { prompt, player, room, secretPrompt } = await req.json()
+  const { prompt, player, room } = await req.json()
   const supabaseClient = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
     Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -25,12 +25,12 @@ serve(async (req) => {
   if (!genData.error) {
     let { data, error, status } = await supabaseClient.from('messages').insert({
       room: room,
+      user_id: player.uuid,
       data: {
         type: "GeneratedImage",
         player: player,
         prompt: prompt,
         url: genData.url.publicUrl,
-        secretPrompt: secretPrompt,
         seed: 0 // In case we want to get/save that from SD
       }
     });

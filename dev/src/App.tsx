@@ -2,8 +2,8 @@ import { Component, createSignal, Switch, Match } from 'solid-js'
 import { useAuth, AuthType } from "./AuthProvider";
 import AuthSelection from './AuthSelection'
 
-import NeoXPromptGuessHost from './games/NeoXPromptGuess'
-import SDPromptGuessHost from './games/SDPromptGuess/Host'
+import NeoXPromptGuess from './games/NeoXPromptGuess'
+import SDPromptGuess from './games/SDPromptGuess'
 
 import JoinGame from './JoinGame'
 import GameSelection from './GameSelection'
@@ -18,11 +18,10 @@ const RenderGame: Component<{game: Game}> = (props) => {
   return (
     <Switch>
       <Match when={props.game.game === GameType.NeoXPromptGuess}>
-        <NeoXPromptGuessHost roomId={props.game.roomId} />
+        <NeoXPromptGuess roomId={props.game.roomId} />
       </Match>
       <Match when={props.game.game === GameType.SDPromptGuess}>
-        Game mode is under construction.
-        {/* <SDPromptGuessHost roomId={props.roomId} /> */}
+        <SDPromptGuess roomId={props.game.roomId} />
       </Match>
     </Switch>
   )

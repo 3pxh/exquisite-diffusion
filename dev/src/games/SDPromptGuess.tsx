@@ -4,16 +4,16 @@ import { useAuth } from "../AuthProvider";
 
 import { GameTypeString } from '../GameTypes'
 
-const GAME_NAME: GameTypeString = "NeoXPromptGuess";
+const GAME_NAME: GameTypeString = "SDPromptGuess";
 
 interface PlayerHandle {
   handle: string,
   uuid: string
 }
-interface TextCompletion {
+interface ImageCompletion {
   player: PlayerHandle,
   prompt: string,
-  text: string
+  url: string
 }
 interface CaptionData {
   player: PlayerHandle,
@@ -35,7 +35,7 @@ enum GameState {
 }
 
 
-const NeoXPromptGuess: Component<{roomId?: number}> = (props) => {
+const SDPromptGuess: Component<{roomId?: number}> = (props) => {
   const { session, playerHandle, setPlayerHandle } = useAuth();
 
   const [isHost, setIsHost] = createSignal<boolean>(false)
@@ -46,9 +46,9 @@ const NeoXPromptGuess: Component<{roomId?: number}> = (props) => {
   const [errorMessage, setErrorMessage] = createSignal<string | null>(null)
   const [players, setPlayers] = createSignal<PlayerHandle[]>([])
   const [scores, setScores] = createSignal<Record<PlayerHandle["uuid"], number>>({})
-  const [texts, setTexts] = createSignal<TextCompletion[]>([])
+  const [images, setImages] = createSignal<ImageCompletion[]>([])
   const [captions, setCaptions] = createSignal<CaptionData[]>([])
-  const [captionTexts, setCaptionTexts] = createSignal<TextCompletion[]>([])
+  const [captionImages, setCaptionImages] = createSignal<ImageCompletion[]>([])
   const [votes, setVotes] = createSignal<Vote[]>([])
   const [round, setRound] = createSignal<number>(1)
 
@@ -131,7 +131,7 @@ const NeoXPromptGuess: Component<{roomId?: number}> = (props) => {
       if (msg.data.type === "WritingPrompts") {
         setGameState(GameState.WritingPrompts);
       } else if (msg.data.type === "CreatingLies") {
-        setCaptionTexts([msg.data.text])
+        setCaptionImages([msg.data.image])
         setGameState(GameState.CreatingLies);
       } else if (msg.data.type === "VotingCaptions") {
         setCaptions(msg.data.captions.filter((c:CaptionData) => c.player.uuid !== session()?.user.id))
@@ -152,7 +152,6 @@ const NeoXPromptGuess: Component<{roomId?: number}> = (props) => {
     .on('postgres_changes', { 
       event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` 
     }, payload => {
-      console.log("got payload", payload);
       handleClientUpdate(payload.new)
     }).subscribe();
   }
@@ -189,27 +188,26 @@ const NeoXPromptGuess: Component<{roomId?: number}> = (props) => {
       .on('postgres_changes', { 
         event: 'INSERT', schema: 'public', table: 'messages', filter: `room=eq.${id}` 
       }, payload => {
-        console.log("got payload", payload)
         const msg = payload.new.data;
         if (msg.type === "NewPlayer" && gameState() === GameState.Lobby) {
           setPlayers(players().concat([msg.player]));
-        } else if (msg.type === "GeneratedText") {
-          setTexts(texts().concat(msg));
-          if (texts().length === players().length) {
+        } else if (msg.type === "GeneratedImage") {
+          setImages(images().concat(msg));
+          if (images().length === players().length) {
             setCaptions([]);
-            setCaptionTexts(JSON.parse(JSON.stringify(texts()))); // hacky deep copy
+            setCaptionImages(JSON.parse(JSON.stringify(images()))); // hacky deep copy
             setGameState(GameState.CreatingLies);
             hostMessage({
               type: "CreatingLies",
-              text: captionTexts()[0]
+              image: captionImages()[0]
             });
           }
         } else if (msg.type === "CaptionResponse") {
           setCaptions(captions().concat(msg));
           if (captions().length === players().length - 1) {
             setCaptions(shuffle(captions().concat([{
-              player: captionTexts()[0].player,
-              caption: captionTexts()[0].prompt
+              player: captionImages()[0].player,
+              caption: captionImages()[0].prompt
             }])));
             hostMessage({
               type: "VotingCaptions",
@@ -221,7 +219,7 @@ const NeoXPromptGuess: Component<{roomId?: number}> = (props) => {
           setVotes(votes().concat(msg));
           if (votes().length === players().length - 1) {
             const newScores = scores();
-            const drawingPlayer = captionTexts()[0].player.uuid;
+            const drawingPlayer = captionImages()[0].player.uuid;
             votes().forEach(v => {
               if (v.vote.uuid === drawingPlayer) { // truth
                 newScores[v.player.uuid] += 1000;
@@ -236,13 +234,13 @@ const NeoXPromptGuess: Component<{roomId?: number}> = (props) => {
               type: "Scoring",
               //TODO: pass the scores, and also which player created the prompt (to say "Correct!")
             });
-            setCaptionTexts(captionTexts().slice(1));
-            if (captionTexts().length === 0) {
+            setCaptionImages(captionImages().slice(1));
+            if (captionImages().length === 0) {
               if (round() < NUM_ROUNDS) {
                 setRound(round() + 1);
                 window.setTimeout(() => {
                   setGameState(GameState.WritingPrompts);
-                  setTexts([]);
+                  setImages([]);
                   setVotes([]);
                   hostMessage({
                     type: "WritingPrompts",
@@ -261,7 +259,7 @@ const NeoXPromptGuess: Component<{roomId?: number}> = (props) => {
                 setGameState(GameState.CreatingLies);
                 hostMessage({
                   type: "CreatingLies",
-                  text: captionTexts()[0]
+                  image: captionImages()[0]
                 });
               }, 15000)
             }
@@ -270,11 +268,11 @@ const NeoXPromptGuess: Component<{roomId?: number}> = (props) => {
       }).subscribe();
   }
   
-  const generateText = async () => {
+  const generateImage = async () => {
     // Must store this, because the element goes away on state change.
-    const p = (document.getElementById("GPTPrompt") as HTMLInputElement).value;
+    const p = (document.getElementById("SDPrompt") as HTMLInputElement).value;
     setGameState(GameState.Waiting);
-    const { data, error } = await supabase.functions.invoke("textsynth", {
+    const { data, error } = await supabase.functions.invoke("diffuse", {
       body: JSON.stringify({
         room: roomId(),
         player: {handle: playerHandle(), uuid: session()?.user.id },
@@ -287,7 +285,7 @@ const NeoXPromptGuess: Component<{roomId?: number}> = (props) => {
   }
 
   const caption = async () => {
-    const c = (document.getElementById("GPTPrefaceLie") as HTMLInputElement).value
+    const c = (document.getElementById("SDPromptLie") as HTMLInputElement).value
     clientMessage({ type: "CaptionResponse", caption: c });
     setGameState(GameState.Waiting);
   }
@@ -322,12 +320,12 @@ const NeoXPromptGuess: Component<{roomId?: number}> = (props) => {
           <ol>
             <li>Host creates a game, gets a room code</li>
             <li>Players join the room with the code</li>
-            <li>Players generate text continuations based on a seed text</li>
-            <li>Continuations are shown one at a time,
+            <li>Players generate images based on a description</li>
+            <li>Images are shown one at a time,
               <ol>
-                <li>All players (other than the one who made the text) give an alternate seed</li>
-                <li>Players see all seeds (including the true one), and try to guess the true one</li>
-                <li>Players get points for A) guessing the true seed, and B) other players guessing their seed</li>
+                <li>All players (other than the one who made the image) give a description</li>
+                <li>Players see all descriptions (including the true one), and try to guess the true one</li>
+                <li>Players get points for A) guessing the true description, and B) other players guessing their description</li>
               </ol>
             </li>
             <li>After several rounds, the game ends</li>
@@ -335,6 +333,8 @@ const NeoXPromptGuess: Component<{roomId?: number}> = (props) => {
 
           <h2>Notes:</h2>
           <ul>
+            <li>Image generation may take up to 30 seconds on the backend -- please be patient!</li>
+            <li>If you get a blurry image, it probably hit the NSFW filter -- I cannot disable it in the API</li>
             <li>Please send feedback to geÖrge Ät hÖqqanen dÖt cÖm</li>
           </ul>
         </Match>
@@ -344,26 +344,26 @@ const NeoXPromptGuess: Component<{roomId?: number}> = (props) => {
           Beep boop beep
           <Show when={!isHost() || isHostPlayer()}>
             <h2>Make something strange!</h2>
-            <input id="GPTPrompt" placeholder="Once upon a time"></input>
-            <button onclick={() => generateText()}>Generate!</button>
+            <input id="SDPrompt" placeholder="a cat with a taco hat"></input>
+            <button onclick={() => generateImage()}>Generate!</button>
           </Show>
         </Match>
         <Match when={gameState() === GameState.CreatingLies}>
           <h2>Round {round()} of {NUM_ROUNDS}, what generated:</h2>
-          <h3 style="white-space: pre-wrap;">{captionTexts()[0].text}</h3>
+          <img src={captionImages()[0].url} />
           <Show when={!isHost() || isHostPlayer()}>
-            <Show when={captionTexts()[0].player.uuid !== session()?.user.id}
+            <Show when={captionImages()[0].player.uuid !== session()?.user.id}
                   fallback={"You are responsible for this masterpiece. Well done."} >
-              <p>What came before these words?</p>
-              <input id="GPTPrefaceLie" type="text" placeholder="Once upon a time"></input>
+              <p>What prompt made this image?</p>
+              <input id="SDPromptLie" type="text" placeholder="a dog dressed as a burrito"></input>
               <button onclick={() => caption()}>Oh yeah!</button>
             </Show>
           </Show>
         </Match>
         <Match when={gameState() === GameState.Voting}>
           <h2>Who made whatdo happen?</h2>
-          <h3 style="white-space: pre-wrap;">{captionTexts()[0].text}</h3>
-          <Show when={(isHost() && !isHostPlayer()) || captionTexts()[0].player.uuid === session()?.user.id}>
+          <img src={captionImages()[0].url} />
+          <Show when={(isHost() && !isHostPlayer()) || captionImages()[0].player.uuid === session()?.user.id}>
             <ol>
               {/* TODO: this doesn't output the prompt which generated it on the client */}
               <For each={captions()}>{(c, i) =>
@@ -371,10 +371,11 @@ const NeoXPromptGuess: Component<{roomId?: number}> = (props) => {
               }</For>
             </ol>
           </Show>
-          <Show when={(!isHost() || isHostPlayer()) && captionTexts()[0].player.uuid !== session()?.user.id}>
-            <Show when={captionTexts()[0].player.uuid !== session()?.user.id}
+          <Show when={!isHost() || isHostPlayer()}>
+            <Show when={captionImages()[0].player.uuid !== session()?.user.id}
                   fallback={"You are still responsible for this masterpiece. Nice."} >
               <h2>Which one is the truth?</h2>
+              {/* This filter is only necessary on the host. */}
               <For each={captions().filter(c => c.player.uuid !== session()?.user.id)}>{(c, i) =>
                   <p><button onclick={() => vote(c.player)}>{c.caption}</button></p>
               }</For>
@@ -408,4 +409,4 @@ const NeoXPromptGuess: Component<{roomId?: number}> = (props) => {
 	)
 }
 
-export default NeoXPromptGuess
+export default SDPromptGuess
