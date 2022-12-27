@@ -19,7 +19,7 @@ export enum AuthType {
 export function AuthProvider(props: {children?: JSX.Element, session: AuthSession | null }) {
   const [session, setSession] = createSignal<AuthSession | null>(props.session);
   const [authState, setAuthState] = createSignal<AuthType | null>(null);
-  const [playerHandle, setPlayerHandle] = createSignal<string>("anonymous");
+  const [playerHandle, setPlayerHandle] = createSignal<string>("host");
 
   const login = async (email: string | null) => {
     if (email === null) {

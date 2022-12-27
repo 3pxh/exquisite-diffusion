@@ -2,6 +2,8 @@ import { Component, createEffect, createSignal, Switch, Match, Show, For } from 
 import { supabase } from '../supabaseClient'
 import { useAuth } from "../AuthProvider";
 
+import Chatroom from '../Chatroom';
+
 import { GameTypeString } from '../GameTypes'
 
 const GAME_NAME: GameTypeString = "SDPromptGuess";
@@ -103,6 +105,10 @@ const SDPromptGuess: Component<{roomId?: number}> = (props) => {
       setErrorMessage(`Could not create room, status code ${status}. Check console for errors.`);
       console.log(error);
     } else {
+      await supabase.from('participants').insert({
+        user: session()?.user.id,
+        room: data.id,
+      });
       setRoomShortcode(shortcode);
       setRoomId(data.id)
       console.log('joining', shortcode, data.id)
@@ -409,6 +415,9 @@ const SDPromptGuess: Component<{roomId?: number}> = (props) => {
       <Show when={errorMessage() !== null}>
         Error! {errorMessage()}
       </Show>
+      {/* TODO: Hoist this to App.
+          HOST does not have roomid at this point, because they CREATE IT IN THE GAME -_- */}
+      <Chatroom roomId={roomId() || 0} />
     </>
 	)
 }
