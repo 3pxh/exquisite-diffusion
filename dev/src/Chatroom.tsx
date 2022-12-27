@@ -20,9 +20,11 @@ const Chatroom: Component<{roomId: number}> = (props) => {
       .on('postgres_changes', { 
         event: 'INSERT', schema: 'public', table: 'chats', filter: `room_id=eq.${props.roomId}` 
       }, payload => {
-        setMessages(messages().concat({text: payload.new.message.text, player: payload.new.message.player.handle}))
-        const el = document.getElementById("Chatroom-Messages")!;
-        el.scrollTop = el.scrollHeight;
+        setMessages(messages().concat({text: payload.new.message.text, player: payload.new.message.player.handle}));
+        const el = document.getElementById("Chatroom-Messages");
+        if (el) { // Not closed.
+          el.scrollTop = el.scrollHeight;
+        }
       }).subscribe();
   })
 
