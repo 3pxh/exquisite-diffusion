@@ -8,6 +8,11 @@ import { GameTypeString } from '../GameTypes'
 
 const GAME_NAME: GameTypeString = "NeoXPromptGuess";
 
+const IS_DEBUG = false;
+if (!IS_DEBUG) {
+  console.log = () => {};
+}
+
 interface PlayerHandle {
   handle: string,
   uuid: string
