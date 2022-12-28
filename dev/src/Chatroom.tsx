@@ -14,6 +14,8 @@ const Chatroom: Component<{roomId: number}> = (props) => {
   const [isOpen, setIsOpen] = createSignal<boolean>(true)
 
   createEffect(async () => {
+    const el = document.getElementById("Chatroom-Messages");
+    if (el) { el.scrollTop = el.scrollHeight; }
     console.log("subscribing to messages", props.roomId);
     supabase
       .channel(`public:chats:room_id=eq.${props.roomId}`)
@@ -21,7 +23,7 @@ const Chatroom: Component<{roomId: number}> = (props) => {
         event: 'INSERT', schema: 'public', table: 'chats', filter: `room_id=eq.${props.roomId}` 
       }, payload => {
         const el = document.getElementById("Chatroom-Messages");
-        const wasScrolledDown = el ? el.scrollTop + el.clientHeight >= el.scrollHeight : false;
+        const wasScrolledDown = true;//el ? el.scrollTop + el.clientHeight >= el.scrollHeight : false;
         setMessages(messages().concat({text: payload.new.message.text, player: payload.new.message.player.handle}));
         if (el && wasScrolledDown) { // Not closed.
           el.scrollTop = el.scrollHeight;
