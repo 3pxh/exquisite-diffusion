@@ -40,7 +40,7 @@ serve(async (req) => {
     )
   } else {
     return new Response(
-      JSON.stringify(genData.error),
+      JSON.stringify(genData),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     )
   }
@@ -82,10 +82,11 @@ async function generate(supabaseClient: any, prompt: string) {
   );
 
   if (!response.ok) {
-    const err = `Non-200 response: ${await response.text()}`;
-    console.error(err);
+    const rjson = await response.json();
+    const err = `Non-200 response: ${rjson}`;
+    console.error({err, prompt});
     return {
-      error: err
+      error: rjson
     };
   }
 

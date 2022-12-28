@@ -285,18 +285,24 @@ const SDPromptGuess: Component<{roomId?: number}> = (props) => {
   }
   
   const generateImage = async () => {
+    setErrorMessage("");
     // Must store this, because the element goes away on state change.
     const p = (document.getElementById("SDPrompt") as HTMLInputElement).value;
     setGameState(GameState.Waiting);
-    const { data, error } = await supabase.functions.invoke("diffuse", {
+    const { data } = await supabase.functions.invoke("diffuse", {
       body: JSON.stringify({
         room: roomId(),
         player: {handle: playerHandle(), uuid: session()?.user.id },
         prompt: p
       })
     });
-    if (error) {
-      setErrorMessage(`Error when runnng textsynth: ${error}`);
+    if (data.error) {
+      if (data.error.name === "invalid_prompts") {
+        setErrorMessage(`"${p}" was an invalid prompt, it probably contained a filtered word. Try again.`);
+      } else {
+        setErrorMessage(`Error calling Stable Diffusion: ${JSON.stringify(data.error)}`);
+      }
+      setGameState(GameState.WritingPrompts);
     }
   }
 
@@ -419,7 +425,7 @@ const SDPromptGuess: Component<{roomId?: number}> = (props) => {
         </Match>
       </Switch>
       <Show when={errorMessage() !== null}>
-        Error! {errorMessage()}
+        <p style="color:red;">{errorMessage()}</p>
       </Show>
       {/* TODO: Hoist this to App.
           HOST does not have roomid at this point, because they CREATE IT IN THE GAME -_- */}
