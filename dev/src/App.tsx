@@ -2,6 +2,8 @@ import { Component, createSignal, Switch, Match } from 'solid-js'
 import { useAuth, AuthType } from "./AuthProvider";
 import AuthSelection from './AuthSelection'
 
+import Chatroom from './Chatroom';
+
 import NeoXPromptGuess from './games/NeoXPromptGuess'
 import SDPromptGuess from './games/SDPromptGuess'
 
@@ -10,19 +12,21 @@ import JoinGame from './JoinGame'
 import GameSelection from './GameSelection'
 import { GameType } from './GameTypes'
 
-interface Game {
-  roomId?: number,
-  game: GameType
+interface Room {
+  roomId: number,
+  game: GameType,
+  shortcode: string,
+  isHost: boolean,
 }
 
-const RenderGame: Component<{game: Game}> = (props) => {
+const RenderGame: Component<{room: Room}> = (props) => {
   return (
     <Switch>
-      <Match when={props.game.game === GameType.NeoXPromptGuess}>
-        <NeoXPromptGuess roomId={props.game.roomId} />
+      <Match when={props.room.game === GameType.NeoXPromptGuess}>
+        <NeoXPromptGuess roomId={props.room.roomId} isHost={props.room.isHost} shortcode={props.room.shortcode} />
       </Match>
-      <Match when={props.game.game === GameType.SDPromptGuess}>
-        <SDPromptGuess roomId={props.game.roomId} />
+      <Match when={props.room.game === GameType.SDPromptGuess}>
+        <SDPromptGuess roomId={props.room.roomId} isHost={props.room.isHost} shortcode={props.room.shortcode} />
       </Match>
     </Switch>
   )
@@ -30,11 +34,13 @@ const RenderGame: Component<{game: Game}> = (props) => {
 
 const App: Component = () => {
   const { session, authState } = useAuth();
-  const [game, setGame] = createSignal<Game | null>(null)
-  const chooseGame = (g: GameType, roomId?: number) => {
-    setGame({
+  const [room, setRoom] = createSignal<Room | null>(null)
+  const chooseGame = (g: GameType, roomId: number, shortcode: string, isHost?: boolean) => {
+    setRoom({
       game: g,
-      roomId: roomId
+      roomId: roomId,
+      shortcode: shortcode,
+      isHost: isHost ?? false,
     });
   }
 
@@ -44,18 +50,19 @@ const App: Component = () => {
         <Match when={session() === null}>
           <AuthSelection />
         </Match>
-        <Match when={session() !== null && game() === null && authState() === AuthType.ANON}>
+        <Match when={room() !== null}>
+          <RenderGame room={room()!} />
+          <Chatroom roomId={room()!.roomId} />
+        </Match>
+        <Match when={authState() === AuthType.ANON}>
           <p>You are logged in anonymously. Join a room below!</p>
           <JoinGame chooseGame={chooseGame} />
         </Match>
-        <Match when={session() !== null && game() === null && authState() === AuthType.EMAIL}>
+        <Match when={authState() === AuthType.EMAIL}>
           <p>Logged in as {session()?.user.email}</p>
           <GameSelection chooseGame={chooseGame} />
           <h2>--- or ---</h2>
           <JoinGame chooseGame={chooseGame} />
-        </Match>
-        <Match when={session() !== null && game() !== null}>
-          <RenderGame game={game()!} />
         </Match>
       </Switch>
     </div>

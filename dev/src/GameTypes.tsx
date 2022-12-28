@@ -9,3 +9,9 @@ export const GameTypeMap = {
   "NeoXPromptGuess": GameType.NeoXPromptGuess,
   "SDPromptGuess": GameType.SDPromptGuess,
 }
+
+export interface Room {
+  roomId: number,
+  shortcode: string,
+  isHost: boolean,
+}

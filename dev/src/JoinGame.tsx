@@ -9,7 +9,7 @@ enum JoinState {
   JOINED
 }
 
-const JoinGame: Component<{chooseGame: (g: GameType, roomId?: number) => void}> = (props) => {
+const JoinGame: Component<{chooseGame: (g: GameType, roomId: number, shortcode: string) => void}> = (props) => {
   const { session, setPlayerHandle } = useAuth();
 
   const [state, setState] = createSignal<JoinState>(JoinState.ENTERING_CODE);
@@ -17,14 +17,12 @@ const JoinGame: Component<{chooseGame: (g: GameType, roomId?: number) => void}> 
   const [name, setName] = createSignal<string>("");
   const [error, setError] = createSignal<string>("");
 
-  // TODO: pass in prop handler to call upon successful join?
-
   const joinRoom = async () => {
     setPlayerHandle(name());
     setState(JoinState.JOINING);
     const { data, error } = await supabase.functions.invoke("joinroom", {
       body: JSON.stringify({
-        shortcode: shortcode().toUpperCase(),
+        shortcode: shortcode(),
         userId: session()?.user.id
       })
     });
@@ -32,14 +30,12 @@ const JoinGame: Component<{chooseGame: (g: GameType, roomId?: number) => void}> 
     if (error) {
       setError(error);
     } else if (data.roomId === null) {
-      setError(`Room ${shortcode().toUpperCase()} not a Lobby, try again.`);
+      setError(`Room ${shortcode()} not a Lobby, try again.`);
       setState(JoinState.ENTERING_CODE);
     } else {
       const { data, error } = await supabase.from('rooms').select('*').eq('id', roomId).single()
-      // TODO: set the player's name somewhere so when we send a NewPlayer message we pass it along.
-      // We could store it on the AuthProvider..........
-      props.chooseGame(GameTypeMap[data.game as GameTypeString], roomId);
-      setState(JoinState.JOINED); // Redundant since choosing the game should stop showing this view.
+      props.chooseGame(GameTypeMap[data.game as GameTypeString], roomId, shortcode());
+      setState(JoinState.JOINED);
     }
   }
 
@@ -52,7 +48,7 @@ const JoinGame: Component<{chooseGame: (g: GameType, roomId?: number) => void}> 
             style="text-transform: uppercase;"
             placeholder="LMAO"
             maxlength="4"
-            onChange={(e) => setShortcode(e.currentTarget.value)}
+            onChange={(e) => setShortcode(e.currentTarget.value.toUpperCase())}
           /></div>
           <div>Name: <input 
             placeholder="happy_ewok"
@@ -67,7 +63,7 @@ const JoinGame: Component<{chooseGame: (g: GameType, roomId?: number) => void}> 
           <p>You've joined the game.</p>
         </Match>
       </Switch>
-      <p>{error()}</p>
+      <p style="color:red;">{error()}</p>
 		</div>
 	)
 }

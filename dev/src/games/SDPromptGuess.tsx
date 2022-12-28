@@ -2,9 +2,7 @@ import { Component, createEffect, createSignal, Switch, Match, Show, For } from 
 import { supabase } from '../supabaseClient'
 import { useAuth } from "../AuthProvider";
 
-import Chatroom from '../Chatroom';
-
-import { GameTypeString } from '../GameTypes'
+import { GameTypeString, Room } from '../GameTypes'
 
 const GAME_NAME: GameTypeString = "SDPromptGuess";
 
@@ -42,13 +40,11 @@ enum GameState {
 }
 
 
-const SDPromptGuess: Component<{roomId?: number}> = (props) => {
+const SDPromptGuess: Component<Room> = (props) => {
   const { session, playerHandle, setPlayerHandle } = useAuth();
 
-  const [isHost, setIsHost] = createSignal<boolean>(false)
   const [isHostPlayer, setIsHostPlayer] = createSignal<boolean>(false)
   const [gameState, setGameState] = createSignal<GameState>(GameState.Lobby)
-  const [roomShortcode, setRoomShortcode] = createSignal<string | null>(null)
   const [roomId, setRoomId] = createSignal<number | null>(null)
   const [errorMessage, setErrorMessage] = createSignal<string | null>(null)
   const [players, setPlayers] = createSignal<PlayerHandle[]>([])
@@ -66,9 +62,8 @@ const SDPromptGuess: Component<{roomId?: number}> = (props) => {
   }
 
 	createEffect(async () => {
-    if (props.roomId === undefined) {
-      setIsHost(true);
-      createRoom();
+    if (props.isHost) {
+      subscribeToMessages(props.roomId)
     } else {
       clientMessage({
         type: "NewPlayer"
@@ -93,33 +88,6 @@ const SDPromptGuess: Component<{roomId?: number}> = (props) => {
       data: { ...msg, timestamp: (new Date()).getTime() },
       host_state: GameState[gameState()]
     }).eq('id', roomId()).select();
-  }
-
-  const createRoom = async () => {
-    let shortcode = '';
-    for ( var i = 0; i < 4; i++ ) {
-      shortcode += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.charAt(Math.floor(Math.random() * 26));
-    }
-    let { data, error, status } = await supabase.from('rooms').insert({
-      shortcode: shortcode,
-      owner: session()?.user.id,
-      game: GAME_NAME,
-      host_state: GameState[GameState.Lobby] // Convert to string in case the enum changes
-    }).select().single();
-    if (data === null || error !== null) {
-      setErrorMessage(`Could not create room, status code ${status}. Check console for errors.`);
-      console.log(error);
-    } else {
-      await supabase.from('participants').insert({
-        user: session()?.user.id,
-        room: data.id,
-      });
-      setRoomShortcode(shortcode);
-      setRoomId(data.id)
-      console.log('joining', shortcode, data.id)
-      setGameState(GameState.Lobby);
-      subscribeToMessages(data.id);
-    }
   }
 
   const shuffle = <T,>(A: T[]) => {
@@ -324,7 +292,7 @@ const SDPromptGuess: Component<{roomId?: number}> = (props) => {
           <h2>Initializing room...</h2>
         </Match>
         <Match when={gameState() === GameState.Lobby && roomId() !== null}>
-          <h2>To join go to 3pxh.com, join with room code: {roomShortcode()}</h2>
+          <h2>To join go to 3pxh.com, join with room code: {props.shortcode}</h2>
           {players().length} in lobby:
           <ul>
             <For each={players()}>{(p, i) =>
@@ -332,7 +300,7 @@ const SDPromptGuess: Component<{roomId?: number}> = (props) => {
             }</For>
           </ul>
 
-          <Show when={isHost()}>
+          <Show when={props.isHost}>
             <div>Your name: <input id="hostName" placeholder="jubjub"></input></div>
             <div>(leave blank if host is not a player)</div>
             <button onclick={startGame}><h2>Everybody is here, let's start!</h2></button>
@@ -364,7 +332,7 @@ const SDPromptGuess: Component<{roomId?: number}> = (props) => {
           <h2>Round {round()} of {NUM_ROUNDS}, dispatching prompts...</h2>
           <h3>Text generation may take a few seconds</h3>
           Beep boop beep
-          <Show when={!isHost() || isHostPlayer()}>
+          <Show when={!props.isHost || isHostPlayer()}>
             <h2>Make something strange!</h2>
             <input id="SDPrompt" placeholder="a cat with a taco hat"></input>
             <button onclick={() => generateImage()}>Generate!</button>
@@ -373,7 +341,7 @@ const SDPromptGuess: Component<{roomId?: number}> = (props) => {
         <Match when={gameState() === GameState.CreatingLies}>
           <h2>Round {round()} of {NUM_ROUNDS}, what generated:</h2>
           <img src={captionImages()[0].url} />
-          <Show when={!isHost() || isHostPlayer()}>
+          <Show when={!props.isHost || isHostPlayer()}>
             <Show when={captionImages()[0].player.uuid !== session()?.user.id}
                   fallback={"You are responsible for this masterpiece. Well done."} >
               <p>What prompt made this image?</p>
@@ -385,7 +353,7 @@ const SDPromptGuess: Component<{roomId?: number}> = (props) => {
         <Match when={gameState() === GameState.Voting}>
           <h2>Who made whatdo happen?</h2>
           <img src={captionImages()[0].url} />
-          <Show when={(isHost() && !isHostPlayer()) || captionImages()[0].player.uuid === session()?.user.id}>
+          <Show when={(props.isHost && !isHostPlayer()) || captionImages()[0].player.uuid === session()?.user.id}>
             <ol>
               {/* TODO: this doesn't output the prompt which generated it on the client */}
               <For each={captions()}>{(c, i) =>
@@ -393,7 +361,7 @@ const SDPromptGuess: Component<{roomId?: number}> = (props) => {
               }</For>
             </ol>
           </Show>
-          <Show when={!isHost() || isHostPlayer()}>
+          <Show when={!props.isHost || isHostPlayer()}>
             <Show when={captionImages()[0].player.uuid !== session()?.user.id}
                   fallback={"You are still responsible for this masterpiece. Nice."} >
               <h2>Which one is the truth?</h2>
@@ -427,9 +395,6 @@ const SDPromptGuess: Component<{roomId?: number}> = (props) => {
       <Show when={errorMessage() !== null}>
         <p style="color:red;">{errorMessage()}</p>
       </Show>
-      {/* TODO: Hoist this to App.
-          HOST does not have roomid at this point, because they CREATE IT IN THE GAME -_- */}
-      <Chatroom roomId={roomId() || 0} />
     </>
 	)
 }
