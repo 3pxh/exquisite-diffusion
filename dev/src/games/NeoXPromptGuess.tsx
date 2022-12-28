@@ -261,6 +261,7 @@ const NeoXPromptGuess: Component<{roomId?: number}> = (props) => {
                   setVotes([]);
                   hostMessage({
                     type: "WritingPrompts",
+                    players: players(),
                   });
                 }, 10000)
               } else {
