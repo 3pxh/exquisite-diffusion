@@ -75,7 +75,18 @@ const SDPromptGuess: Component<Room> = (props) => {
   const hostMessage = async (msg: any) => {
     // TODO: Guarantee that we have a room id, do error handling/reporting
     let { data, error, status } = await supabase.from('rooms').update({
-      data: { ...msg, timestamp: (new Date()).getTime() },
+      data: { 
+        ...msg, 
+        timestamp: (new Date()).getTime(),
+        gameState: gameState(),
+        players: players(),
+        scores: scores(),
+        images: images(),
+        captions: captions(),
+        captionImages: captionImages(),
+        votes: votes(),
+        round: round(),
+      },
       host_state: GameState[gameState()]
     }).eq('id', props.roomId).select();
   }
@@ -97,23 +108,12 @@ const SDPromptGuess: Component<Room> = (props) => {
     } else {
       lastUpdate = (new Date()).getTime();
       lastUpdateMessageTimestamp = msg.data.timestamp;
-      if (msg.data.type === "WritingPrompts") {
-        setPlayers(msg.data.players);
-        setGameState(GameState.WritingPrompts);
-      } else if (msg.data.type === "CreatingLies") {
-        setCaptionImages([msg.data.image])
-        setGameState(GameState.CreatingLies);
-      } else if (msg.data.type === "VotingCaptions") {
-        setCaptions(msg.data.captions.filter((c:CaptionData) => c.player.uuid !== session()?.user.id))
-        setGameState(GameState.Voting);
-      } else if (msg.data.type === "Scoring") {
-        setScores(msg.data.scores);
-        setVotes(msg.data.votes);
-        setGameState(GameState.Scoring);
-      } else if (msg.data.type === "Finished") {
-        // TODO: Get scores
-        setGameState(GameState.Finished);
-      }
+      setCaptions(msg.data.captions)
+      setCaptionImages(msg.data.captionImages)
+      setPlayers(msg.data.players);
+      setScores(msg.data.scores);
+      setVotes(msg.data.votes);
+      setGameState(msg.data.gameState);
     }
   }
   // CLIENTS subscribe to ROOM
@@ -147,10 +147,7 @@ const SDPromptGuess: Component<Room> = (props) => {
     const initScores:Record<PlayerHandle["uuid"], number> = {};
     players().forEach(p => { initScores[p.uuid] = 0; });
     setScores(initScores);
-    hostMessage({
-      type: "WritingPrompts",
-      players: players(),
-    });
+    hostMessage({});
   }
 
   // HOST subscribes to MESSAGES
@@ -169,10 +166,7 @@ const SDPromptGuess: Component<Room> = (props) => {
             setCaptions([]);
             setCaptionImages(JSON.parse(JSON.stringify(images()))); // hacky deep copy
             setGameState(GameState.CreatingLies);
-            hostMessage({
-              type: "CreatingLies",
-              image: captionImages()[0]
-            });
+            hostMessage({});
           }
         } else if (msg.type === "CaptionResponse") {
           setCaptions(captions().concat(msg));
@@ -181,10 +175,7 @@ const SDPromptGuess: Component<Room> = (props) => {
               player: captionImages()[0].player,
               caption: captionImages()[0].prompt
             }])));
-            hostMessage({
-              type: "VotingCaptions",
-              captions: captions(),
-            });
+            hostMessage({});
             setGameState(GameState.Voting);
           }
         } else if (msg.type === "CaptionVote") {
@@ -202,11 +193,7 @@ const SDPromptGuess: Component<Room> = (props) => {
             })
             setScores(newScores);
             setGameState(GameState.Scoring);
-            hostMessage({
-              type: "Scoring",
-              scores: newScores,
-              votes: votes(),
-            });
+            hostMessage({});
             setCaptionImages(captionImages().slice(1));
             if (captionImages().length === 0) {
               if (round() < NUM_ROUNDS) {
@@ -215,26 +202,18 @@ const SDPromptGuess: Component<Room> = (props) => {
                   setGameState(GameState.WritingPrompts);
                   setImages([]);
                   setVotes([]);
-                  hostMessage({
-                    type: "WritingPrompts",
-                    players: players(),
-                  });
+                  hostMessage({});
                 }, 10000)
               } else {
                 setGameState(GameState.Finished);
-                hostMessage({
-                  type: "Finished",
-                });
+                hostMessage({});
               }
             } else {
               window.setTimeout(() => {
                 setCaptions([]);
                 setVotes([]);
                 setGameState(GameState.CreatingLies);
-                hostMessage({
-                  type: "CreatingLies",
-                  image: captionImages()[0]
-                });
+                hostMessage({});
               }, 15000)
             }
           }
