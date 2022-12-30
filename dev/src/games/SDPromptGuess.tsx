@@ -4,6 +4,13 @@ import { useAuth } from "../AuthProvider";
 
 import { GameTypeString, Room } from '../GameTypes'
 
+const shuffle = <T,>(A: T[]) => {
+  return A.map(value => ({ value, sort: Math.random() }))
+          .sort((a, b) => a.sort - b.sort)
+          .map(({ value }) => value);
+}
+
+
 const GAME_NAME: GameTypeString = "SDPromptGuess";
 
 interface PlayerHandle {
@@ -91,11 +98,6 @@ const SDPromptGuess: Component<Room> = (props) => {
     }).eq('id', props.roomId).select();
   }
 
-  const shuffle = <T,>(A: T[]) => {
-    return A.map(value => ({ value, sort: Math.random() }))
-            .sort((a, b) => a.sort - b.sort)
-            .map(({ value }) => value);
-  }
 
   let lastUpdateMessageTimestamp = 0;
   let lastUpdate = (new Date()).getTime();
@@ -150,6 +152,25 @@ const SDPromptGuess: Component<Room> = (props) => {
     hostMessage({});
   }
 
+  const continueAfterScoring = () => {
+    setCaptionImages(captionImages().slice(1));
+    if (captionImages().length === 0) {
+      if (round() < NUM_ROUNDS) {
+        setRound(round() + 1);
+        setGameState(GameState.WritingPrompts);
+        setImages([]);
+        setVotes([]);
+      } else {
+        setGameState(GameState.Finished);
+      }
+    } else {
+      setCaptions([]);
+      setVotes([]);
+      setGameState(GameState.CreatingLies);
+    }
+    hostMessage({});
+  }
+
   // HOST subscribes to MESSAGES
   const subscribeToMessages = (id: number) => {
     supabase
@@ -175,8 +196,8 @@ const SDPromptGuess: Component<Room> = (props) => {
               player: captionImages()[0].player,
               caption: captionImages()[0].prompt
             }])));
-            hostMessage({});
             setGameState(GameState.Voting);
+            hostMessage({});
           }
         } else if (msg.type === "CaptionVote") {
           setVotes(votes().concat(msg));
@@ -194,28 +215,10 @@ const SDPromptGuess: Component<Room> = (props) => {
             setScores(newScores);
             setGameState(GameState.Scoring);
             hostMessage({});
-            setCaptionImages(captionImages().slice(1));
-            if (captionImages().length === 0) {
-              if (round() < NUM_ROUNDS) {
-                setRound(round() + 1);
-                window.setTimeout(() => {
-                  setGameState(GameState.WritingPrompts);
-                  setImages([]);
-                  setVotes([]);
-                  hostMessage({});
-                }, 10000)
-              } else {
-                setGameState(GameState.Finished);
-                hostMessage({});
-              }
-            } else {
-              window.setTimeout(() => {
-                setCaptions([]);
-                setVotes([]);
-                setGameState(GameState.CreatingLies);
-                hostMessage({});
-              }, 15000)
-            }
+            // TODO: do we want this timeout, or the host presses a button?
+            window.setTimeout(() => {
+              continueAfterScoring();
+            }, 10000);
           }
         }
       }).subscribe();
@@ -324,7 +327,6 @@ const SDPromptGuess: Component<Room> = (props) => {
           <img src={captionImages()[0].url} />
           <Show when={(props.isHost && !isHostPlayer()) || captionImages()[0].player.uuid === session()?.user.id}>
             <ol>
-              {/* TODO: this doesn't output the prompt which generated it on the client */}
               <For each={captions()}>{(c, i) =>
                 <li><h3>{c.caption}</h3></li>
               }</For>
@@ -334,22 +336,57 @@ const SDPromptGuess: Component<Room> = (props) => {
             <Show when={captionImages()[0].player.uuid !== session()?.user.id}
                   fallback={"You are still responsible for this masterpiece. Nice."} >
               <h2>Which one is the truth?</h2>
-              {/* This filter is only necessary on the host. */}
-              <For each={captions().filter(c => c.player.uuid !== session()?.user.id)}>{(c, i) =>
-                  <p><button onclick={() => vote(c.player)}>{c.caption}</button></p>
+              <For each={captions()}>{(c, i) =>
+                  <p><button onclick={() => vote(c.player)}
+                    disabled={c.player.uuid === session()?.user.id}
+                  >{c.caption}</button></p>
               }</For>
             </Show>
           </Show>
         </Match>
-        <Match when={gameState() === GameState.Scoring}>
+        {/* Having to specify captionImages().length here is bad.
+        It is because we can't simultaneously setGameState() AND setCaptionImages() when we get msg from Host.
+        This is a real annoyance because we have to reason about the ordering of our data setting. */}
+        <Match when={gameState() === GameState.Scoring && captionImages().length > 0}>
           <h2>What did people guess?</h2>
-          <For each={votes()}>{(v, i) =>
-              <h3>{v.player.handle} picked {v.vote.handle}</h3>
+
+          {/* Go through the lies, show who picked them */}
+          <For each={players().filter(p => p.uuid !== captionImages()[0].player.uuid)}>{(p, i) =>
+            <>
+            <div class="PromptGuess-ScoreRow">
+              <div class="PromptGuess-ScoreRowCaption">
+                {captions().find(c => c.player.uuid === p.uuid)?.caption}
+              </div>
+              <div class="PromptGuess-ScoreRowAuthor">{p.handle}</div>
+              <div class="PromptGuess-ScoreRowGuessers">
+                <For each={votes()}>{(v, i) =>
+                  <>
+                    {p.uuid === v.vote.uuid ? `${v.player.handle}, ` : ""}
+                  </>
+                }</For>
+              </div>
+            </div>
+            </>
           }</For>
+
+          {/* Who picked the truth? */}
+          <div class="PromptGuess-ScoreRow PromptGuess-ScoreRow--Truth">
+            <div class="PromptGuess-ScoreRowCaption">{captionImages()[0].prompt}</div>
+            <div class="PromptGuess-ScoreRowAuthor">{captionImages()[0].player.handle}</div>
+            <div class="PromptGuess-ScoreRowGuessers">
+            <For each={votes()}>{(v, i) =>
+              <>
+                {captionImages()[0].player.uuid === v.vote.uuid ? `${v.player.handle}, ` : ""}
+              </>
+            }</For>
+            </div>
+          </div>
+          
           <h2>Scores:</h2>
           <For each={players()}>{(p, i) =>
             <h3>{p.handle} has {scores()[p.uuid]} points</h3>
           }</For>
+          {/* TODO: if host, have a "continue" button? */}
         </Match>
         <Match when={gameState() === GameState.Finished}>
           <h2>Final Scores!</h2>
