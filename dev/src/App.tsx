@@ -6,7 +6,7 @@ import Chatroom from './Chatroom';
 
 import NeoXPromptGuess from './games/NeoXPromptGuess'
 import SDPromptGuess from './games/SDPromptGuess'
-
+import Hadron64 from './games/Hadron64';
 
 import JoinGame from './JoinGame'
 import GameSelection from './GameSelection'
@@ -27,6 +27,9 @@ const RenderGame: Component<{room: Room}> = (props) => {
       </Match>
       <Match when={props.room.game === GameType.SDPromptGuess}>
         <SDPromptGuess roomId={props.room.roomId} isHost={props.room.isHost} shortcode={props.room.shortcode} />
+      </Match>
+      <Match when={props.room.game === GameType.Hadron64}>
+        <Hadron64 roomId={props.room.roomId} isHost={props.room.isHost} shortcode={props.room.shortcode} />
       </Match>
     </Switch>
   )

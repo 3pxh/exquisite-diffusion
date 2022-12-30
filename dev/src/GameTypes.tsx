@@ -1,13 +1,15 @@
 export enum GameType {
   NeoXPromptGuess,
-  SDPromptGuess
+  SDPromptGuess,
+  Hadron64,
 }
 
-export type GameTypeString = "NeoXPromptGuess" | "SDPromptGuess"
+export type GameTypeString = "NeoXPromptGuess" | "SDPromptGuess" | "Hadron64"
 
 export const GameTypeMap = {
   "NeoXPromptGuess": GameType.NeoXPromptGuess,
   "SDPromptGuess": GameType.SDPromptGuess,
+  "Hadron64": GameType.Hadron64,
 }
 
 export interface Room {

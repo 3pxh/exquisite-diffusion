@@ -47,6 +47,10 @@ const GameSelection: Component<{chooseGame: (g: GameType, roomId: number, shortc
         <h3>Image Generation</h3>
         <p>Players seed an image generator, and try to fake out others based on the output images.</p>
       </button>
+      <button onclick={() => {createRoom(GameType.Hadron64)}}>
+        <h3>Hadron 64</h3>
+        <p>Race to match patterns</p>
+      </button>
       </>}
 		</div>
 	)

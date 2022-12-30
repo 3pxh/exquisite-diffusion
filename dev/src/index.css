@@ -115,3 +115,17 @@ input {
   background-color: var(--custom-bg-color);
   color: var(--custom-color);
 }
+
+* {
+  box-sizing: border-box;
+  -webkit-box-sizing: border-box; /* Safari/Chrome, other WebKit */
+  -moz-box-sizing: border-box;
+}
+
+.Card {
+  /* Why in the hell doesn't border-box work here? b/c rerender? */
+  border: 1px solid rgba(0,0,0,0);
+}
+.Card--selected {
+  border: 1px dashed #CCC;
+}
