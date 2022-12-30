@@ -6,11 +6,6 @@ import { GameTypeString, Room } from '../GameTypes'
 
 const GAME_NAME: GameTypeString = "SDPromptGuess";
 
-const IS_DEBUG = false;
-if (!IS_DEBUG) {
-  console.log = () => {};
-}
-
 interface PlayerHandle {
   handle: string,
   uuid: string
@@ -45,7 +40,6 @@ const SDPromptGuess: Component<Room> = (props) => {
 
   const [isHostPlayer, setIsHostPlayer] = createSignal<boolean>(false)
   const [gameState, setGameState] = createSignal<GameState>(GameState.Lobby)
-  const [roomId, setRoomId] = createSignal<number | null>(null)
   const [errorMessage, setErrorMessage] = createSignal<string | null>(null)
   const [players, setPlayers] = createSignal<PlayerHandle[]>([])
   const [scores, setScores] = createSignal<Record<PlayerHandle["uuid"], number>>({})
@@ -56,10 +50,6 @@ const SDPromptGuess: Component<Room> = (props) => {
   const [round, setRound] = createSignal<number>(1)
 
   const NUM_ROUNDS = 3;
-
-  if (props.roomId !== undefined) {
-    setRoomId(props.roomId);
-  }
 
 	createEffect(async () => {
     if (props.isHost) {
@@ -74,7 +64,7 @@ const SDPromptGuess: Component<Room> = (props) => {
 
   const clientMessage = async (msg: any) => {
     let { data, error, status } = await supabase.from('messages').insert({
-      room: roomId(),
+      room: props.roomId,
       user_id: session()?.user.id, // Needed for RLS
       // TODO: Make this less possible to collide with callers of clientMessage
       //  - I accidentally used "player" at one point to pass a vote -_-
@@ -87,7 +77,7 @@ const SDPromptGuess: Component<Room> = (props) => {
     let { data, error, status } = await supabase.from('rooms').update({
       data: { ...msg, timestamp: (new Date()).getTime() },
       host_state: GameState[gameState()]
-    }).eq('id', roomId()).select();
+    }).eq('id', props.roomId).select();
   }
 
   const shuffle = <T,>(A: T[]) => {
@@ -139,8 +129,8 @@ const SDPromptGuess: Component<Room> = (props) => {
 
   // This is in case their phone locks. For clients only.
   // window.setInterval(async () => {
-  //   if (roomId() !== null && (new Date()).getTime() - lastUpdate > 20000) {
-  //     let { data, error, status } = await supabase.from('rooms').select(`*`).eq('id', roomId()).single();
+  //   if (props.roomId !== null && (new Date()).getTime() - lastUpdate > 20000) {
+  //     let { data, error, status } = await supabase.from('rooms').select(`*`).eq('id', props.roomId).single();
   //     // TODO: Any semblance of error handling.
   //     handleUpdate(data);
   //   }
@@ -259,7 +249,7 @@ const SDPromptGuess: Component<Room> = (props) => {
     setGameState(GameState.Waiting);
     const { data } = await supabase.functions.invoke("diffuse", {
       body: JSON.stringify({
-        room: roomId(),
+        room: props.roomId,
         player: {handle: playerHandle(), uuid: session()?.user.id },
         prompt: p
       })
@@ -288,10 +278,10 @@ const SDPromptGuess: Component<Room> = (props) => {
 	return (
     <>
       <Switch fallback={<p>Invalid host state: {gameState()}</p>}>
-        <Match when={gameState() === GameState.Lobby && roomId() === null}>
+        <Match when={gameState() === GameState.Lobby && props.roomId === null}>
           <h2>Initializing room...</h2>
         </Match>
-        <Match when={gameState() === GameState.Lobby && roomId() !== null}>
+        <Match when={gameState() === GameState.Lobby && props.roomId !== null}>
           <h2>To join go to 3pxh.com, join with room code: {props.shortcode}</h2>
           {players().length} in lobby:
           <ul>
