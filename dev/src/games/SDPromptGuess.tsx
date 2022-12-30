@@ -127,6 +127,18 @@ const SDPromptGuess: Component<Room> = (props) => {
     }, payload => {
       handleClientUpdate(payload.new)
     }).subscribe();
+    // Initialize if mid-game
+    supabase.from('rooms').select(`*`).eq('id', props.roomId).single().then(({ data, error, status }) => {
+      handleClientUpdate(data);
+      // Additionally, we should re-set our own name given the matching player uuid handle
+      if (data.data.players) {
+        data.data.players.forEach((p:any) => {
+          if (p.uuid === session()?.user.id) {
+            setPlayerHandle(p.handle);
+          }
+        })
+      }
+    });
   }
 
   // This is in case their phone locks. For clients only.
@@ -259,6 +271,7 @@ const SDPromptGuess: Component<Room> = (props) => {
 
 	return (
     <>
+      <h3>Room code: {props.shortcode}</h3>
       <Switch fallback={<p>Invalid host state: {gameState()}</p>}>
         <Match when={gameState() === GameState.Lobby && props.roomId === null}>
           <h2>Initializing room...</h2>

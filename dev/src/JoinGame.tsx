@@ -30,8 +30,14 @@ const JoinGame: Component<{chooseGame: (g: GameType, roomId: number, shortcode: 
     if (error) {
       setError(error);
     } else if (data.roomId === null) {
-      setError(`Room ${shortcode()} not a Lobby, try again.`);
-      setState(JoinState.ENTERING_CODE);
+      // Try rejoining -- if they already joined and are authed (session!) they have read access
+      const { data, error } = await supabase.from('rooms').select('*').eq('shortcode', shortcode()).single();
+      if (!error && data.id !== null) {
+        props.chooseGame(GameTypeMap[data.game as GameTypeString], data.id, shortcode());
+      } else {
+        setError(`Room ${shortcode()} not a Lobby, try again.`);
+        setState(JoinState.ENTERING_CODE);  
+      }
     } else {
       const { data, error } = await supabase.from('rooms').select('*').eq('id', roomId).single()
       props.chooseGame(GameTypeMap[data.game as GameTypeString], roomId, shortcode());
@@ -43,7 +49,7 @@ const JoinGame: Component<{chooseGame: (g: GameType, roomId: number, shortcode: 
 		<div class="JoinGame">
       <Switch>
         <Match when={state() === JoinState.ENTERING_CODE}>
-          <h2>Join a game</h2>
+          <h2>Join or Re-join a game</h2>
           <div>Room code: <input 
             style="text-transform: uppercase;"
             placeholder="LMAO"
