@@ -28,7 +28,7 @@ const Card: Component<{val: number}> = (props) => {
 
   return (
     <>
-    <svg style="margin:10px;background-color:white; fill-rule:evenodd;clip-rule:evenodd;" width="117px" height="156px" viewBox="0 0 2352 3318" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/">
+    <svg style="margin:10px;background-color:white; fill-rule:evenodd;clip-rule:evenodd;" width="117px" height="156px" viewBox="0 0 2352 3318" version="1.1" xmlns="http://www.w3.org/2000/svg">
       <rect id="Artboard1" x="0" y="0" width="2352" height="3318" style="fill:none;"/>
       <clipPath id="_clip1">
           <rect id="Artboard11" x="0" y="0" width="2352" height="3318"/>
