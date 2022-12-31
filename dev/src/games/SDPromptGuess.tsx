@@ -49,6 +49,7 @@ const SDPromptGuess: Component<Room> = (props) => {
   const [gameState, setGameState] = createSignal<GameState>(GameState.Lobby)
   const [errorMessage, setErrorMessage] = createSignal<string | null>(null)
   const [players, setPlayers] = createSignal<PlayerHandle[]>([])
+  const [playerStates, setPlayerStates] = createSignal<Record<PlayerHandle["uuid"], GameState>>({})
   const [scores, setScores] = createSignal<Record<PlayerHandle["uuid"], number>>({})
   const [images, setImages] = createSignal<ImageCompletion[]>([])
   const [captions, setCaptions] = createSignal<CaptionData[]>([])
@@ -77,6 +78,16 @@ const SDPromptGuess: Component<Room> = (props) => {
       //  - I accidentally used "player" at one point to pass a vote -_-
       data: {...msg, player: {handle: playerHandle(), uuid: session()?.user.id}}
     });
+  };
+
+  const setAndBroadcastPlayerGameState = (state: GameState) => {
+    if (!props.isHost || isHostPlayer()) {
+      const oldState = gameState();
+      setGameState(state);
+      if (oldState !== state && playerStates()[session()?.user.id ?? ""] !== state) {
+        clientMessage({type: "PlayerState", state: state});
+      }
+    }
   }
 
   const hostMessage = async (msg: any) => {
@@ -87,6 +98,7 @@ const SDPromptGuess: Component<Room> = (props) => {
         timestamp: (new Date()).getTime(),
         gameState: gameState(),
         players: players(),
+        playerStates: playerStates(),
         scores: scores(),
         images: images(),
         captions: captions(),
@@ -102,20 +114,27 @@ const SDPromptGuess: Component<Room> = (props) => {
   let lastUpdateMessageTimestamp = 0;
   let lastUpdate = (new Date()).getTime();
   const handleClientUpdate = (msg: any) => {
-    if (lastUpdateMessageTimestamp === msg.data.timestamp) {
+    if (lastUpdateMessageTimestamp === msg.data?.timestamp) {
       // This will happen from the setInterval getting entries from the db
       // We don't want to process the same state change multiple times,
       // lest it revert to a previous state.
       return;
     } else {
+      console.log("payload", msg.data)
       lastUpdate = (new Date()).getTime();
       lastUpdateMessageTimestamp = msg.data.timestamp;
-      setCaptions(msg.data.captions)
-      setCaptionImages(msg.data.captionImages)
+      setCaptions(msg.data.captions);
+      setCaptionImages(msg.data.captionImages);
       setPlayers(msg.data.players);
       setScores(msg.data.scores);
       setVotes(msg.data.votes);
-      setGameState(msg.data.gameState);
+      // If we broadcast our state afterward, we get an infinite loop.
+      setPlayerStates(msg.data.playerStates);
+
+      // The player should not recognize state changes except when specifically annotated by the host.
+      if (!msg.data.ignoreStateChange) {
+        setAndBroadcastPlayerGameState(msg.data.gameState);
+      }
     }
   }
   // CLIENTS subscribe to ROOM
@@ -161,6 +180,9 @@ const SDPromptGuess: Component<Room> = (props) => {
     const initScores:Record<PlayerHandle["uuid"], number> = {};
     players().forEach(p => { initScores[p.uuid] = 0; });
     setScores(initScores);
+    const initStates:Record<PlayerHandle["uuid"], GameState> = {};
+    players().forEach(p => { initStates[p.uuid] = GameState.Lobby; });
+    setPlayerStates(initStates);
     hostMessage({});
   }
 
@@ -232,6 +254,12 @@ const SDPromptGuess: Component<Room> = (props) => {
               continueAfterScoring();
             }, 10000);
           }
+        } else if (msg.type === "PlayerState") {
+          const newStates = {...playerStates()}
+          newStates[msg.player.uuid] = msg.state;
+          setPlayerStates(newStates);
+          // This is just a data relay, plus the host could be a player and be Waiting, so we must ignore!
+          hostMessage({ignoreStateChange: true});
         }
       }).subscribe();
   }
@@ -240,7 +268,7 @@ const SDPromptGuess: Component<Room> = (props) => {
     setErrorMessage("");
     // Must store this, because the element goes away on state change.
     const p = (document.getElementById("SDPrompt") as HTMLInputElement).value;
-    setGameState(GameState.Waiting);
+    setAndBroadcastPlayerGameState(GameState.Waiting);
     const { data } = await supabase.functions.invoke("diffuse", {
       body: JSON.stringify({
         room: props.roomId,
@@ -254,19 +282,19 @@ const SDPromptGuess: Component<Room> = (props) => {
       } else {
         setErrorMessage(`Error calling Stable Diffusion: ${JSON.stringify(data.error)}`);
       }
-      setGameState(GameState.WritingPrompts);
+      setAndBroadcastPlayerGameState(GameState.WritingPrompts);
     }
   }
 
   const caption = async () => {
     const c = (document.getElementById("SDPromptLie") as HTMLInputElement).value
     clientMessage({ type: "CaptionResponse", caption: c });
-    setGameState(GameState.Waiting);
+    setAndBroadcastPlayerGameState(GameState.Waiting);
   }
 
   const vote = async (player: PlayerHandle) => {
     clientMessage({ type: "CaptionVote", vote: player });
-    setGameState(GameState.Waiting);
+    setAndBroadcastPlayerGameState(GameState.Waiting);
   }
 
 	return (
@@ -370,8 +398,9 @@ const SDPromptGuess: Component<Room> = (props) => {
               <div class="PromptGuess-ScoreRowCaption">
                 {captions().find(c => c.player.uuid === p.uuid)?.caption}
               </div>
-              <div class="PromptGuess-ScoreRowAuthor">{p.handle}</div>
+              <div class="PromptGuess-ScoreRowAuthor">by {p.handle}</div>
               <div class="PromptGuess-ScoreRowGuessers">
+                Guessers: 
                 <For each={votes()}>{(v, i) =>
                   <>
                     {p.uuid === v.vote.uuid ? `${v.player.handle}, ` : ""}
@@ -385,8 +414,9 @@ const SDPromptGuess: Component<Room> = (props) => {
           {/* Who picked the truth? */}
           <div class="PromptGuess-ScoreRow PromptGuess-ScoreRow--Truth">
             <div class="PromptGuess-ScoreRowCaption">{captionImages()[0].prompt}</div>
-            <div class="PromptGuess-ScoreRowAuthor">{captionImages()[0].player.handle}</div>
+            <div class="PromptGuess-ScoreRowAuthor">by {captionImages()[0].player.handle}</div>
             <div class="PromptGuess-ScoreRowGuessers">
+              Guessers: 
             <For each={votes()}>{(v, i) =>
               <>
                 {captionImages()[0].player.uuid === v.vote.uuid ? `${v.player.handle}, ` : ""}
@@ -409,6 +439,17 @@ const SDPromptGuess: Component<Room> = (props) => {
         </Match>
         <Match when={gameState() === GameState.Waiting}>
           Waiting for other players to finish up...
+
+          <For each={players()}>{(p, i) =>
+          <>
+            <Show when={playerStates()[p.uuid] === GameState.Waiting}>
+              <p>{p.handle} is done</p>
+            </Show>
+            <Show when={playerStates()[p.uuid] !== GameState.Waiting}>
+            <p>{p.handle} is still working</p>
+            </Show>
+          </>
+          }</For>
         </Match>
       </Switch>
       <Show when={errorMessage() !== null}>
