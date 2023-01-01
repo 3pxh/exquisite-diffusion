@@ -27,7 +27,8 @@ serve(async (req) => {
       room: room,
       user_id: player.uuid,
       data: {
-        type: "GeneratedImage",
+        type: "Generation",
+        generationType: "image",
         player: player,
         prompt: prompt,
         url: genData.url.publicUrl,

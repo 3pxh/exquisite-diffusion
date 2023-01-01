@@ -35,7 +35,8 @@ serve(async (req) => {
     room: room,
     user_id: player.uuid,
     data: {
-      type: "GeneratedText",
+      type: "Generation",
+      generationType: "text",
       player: player,
       prompt: prompt,
       text: synthJson.text,

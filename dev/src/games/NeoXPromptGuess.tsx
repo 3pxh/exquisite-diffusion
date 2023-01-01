@@ -164,7 +164,7 @@ const NeoXPromptGuess: Component<Room> = (props) => {
         const msg = payload.new.data;
         if (msg.type === "NewPlayer" && gameState() === GameState.Lobby) {
           setPlayers(players().concat([msg.player]));
-        } else if (msg.type === "GeneratedText") {
+        } else if (msg.type === "Generation") {
           setTexts(texts().concat(msg));
           if (texts().length === players().length) {
             setCaptions([]);
