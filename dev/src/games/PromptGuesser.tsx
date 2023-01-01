@@ -57,7 +57,7 @@ const RenderGeneration: Component<{generation: Generation}> = (props) => {
 }
 
 
-const SDPromptGuess: Component<Room> = (props) => {
+const PromptGuesser: Component<Room> = (props) => {
   const { session, playerHandle, setPlayerHandle } = useAuth();
 
   const [isHostPlayer, setIsHostPlayer] = createSignal<boolean>(false)
@@ -481,7 +481,7 @@ const SDPromptGuess: Component<Room> = (props) => {
           }</For>
         </Match>
         <Match when={gameState() === GameState.Waiting}>
-          Waiting for other players to finish up...
+          Waiting for other players (or the computer) to finish up...
 
           <For each={players()}>{(p, i) =>
           <>
@@ -502,4 +502,4 @@ const SDPromptGuess: Component<Room> = (props) => {
 	)
 }
 
-export default SDPromptGuess
+export default PromptGuesser
