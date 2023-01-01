@@ -16,4 +16,5 @@ export interface Room {
   roomId: number,
   shortcode: string,
   isHost: boolean,
+  gameType: GameType,
 }

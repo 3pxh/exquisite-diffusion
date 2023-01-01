@@ -23,13 +23,13 @@ const RenderGame: Component<{room: Room}> = (props) => {
   return (
     <Switch>
       <Match when={props.room.game === GameType.NeoXPromptGuess}>
-        <NeoXPromptGuess roomId={props.room.roomId} isHost={props.room.isHost} shortcode={props.room.shortcode} />
+        <NeoXPromptGuess roomId={props.room.roomId} isHost={props.room.isHost} shortcode={props.room.shortcode} gameType={GameType.NeoXPromptGuess} />
       </Match>
       <Match when={props.room.game === GameType.SDPromptGuess}>
-        <SDPromptGuess roomId={props.room.roomId} isHost={props.room.isHost} shortcode={props.room.shortcode} />
+        <SDPromptGuess roomId={props.room.roomId} isHost={props.room.isHost} shortcode={props.room.shortcode} gameType={GameType.SDPromptGuess} />
       </Match>
       <Match when={props.room.game === GameType.Hadron64}>
-        <Hadron64 roomId={props.room.roomId} isHost={props.room.isHost} shortcode={props.room.shortcode} />
+        <Hadron64 roomId={props.room.roomId} isHost={props.room.isHost} shortcode={props.room.shortcode} gameType={GameType.Hadron64} />
       </Match>
     </Switch>
   )
