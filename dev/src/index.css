@@ -134,6 +134,39 @@ input {
   border: 1px dashed #CCC;
 }
 
+.Card-PlayerSelections {
+  display: flex;
+  flex-direction: row;
+}
+
+.Hadron64-Scores {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+}
+
+.HadronDot {
+  border-radius: 50%;
+  height: 10px;
+  margin: 0 3px;
+  width: 10px;
+}
+
+.HadronDot-Color--0 {
+  background-color: #DDAA33;
+}
+.HadronDot-Color--1 {
+  background-color: #BB5566;
+}
+.HadronDot-Color--2 {
+  background-color: #004488;
+}
+.HadronDot-Color--3 {
+  background-color: white;
+}
+.HadronDot-Color--100 {
+  background-color: transparent;
+}
 
 
 .PromptGuess-ScoreRow {

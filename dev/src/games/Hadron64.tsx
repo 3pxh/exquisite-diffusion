@@ -17,6 +17,13 @@ enum GameState {
   Frozen, // Upon successful set
   Finished,
 }
+const PlayerDot: Component<{n: number}> = (props) => {
+  const cl:any = {HadronDot: true};
+  cl[`HadronDot-Color--${props.n}`] = true;
+  return (<>
+    <div classList={cl}></div>
+  </>)
+}
 
 const Card: Component<{val: number}> = (props) => {
   const bitPattern = [];
@@ -392,11 +399,19 @@ const Hadron64: Component<Room> = (props) => {
                 }} onclick={() => {toggleSelect(c)}}><Card val={c} />
                 {/* TODO: instead of showing player handles, give them colors for the scoreboard
                     and show colored dots for each player. */}
-                <For each={playerSelections()[c]}>{(p, i) =>
+                <div class="Card-PlayerSelections">
+                  <PlayerDot n={100} />
+                  <For each={players()}>{(p, i) =>
+                    <Show when={playerSelections()[c]?.find(x => x === p.handle)}>
+                      <PlayerDot n={i()} />
+                    </Show>
+                  }</For>
+                </div>
+                {/* <For each={playerSelections()[c]}>{(p, i) =>
                   <Show when={p !== playerHandle()}>
                     <p>{p}</p>
                   </Show>
-                }</For>
+                }</For> */}
               </div>
               </>
           }</For>
@@ -407,7 +422,7 @@ const Hadron64: Component<Room> = (props) => {
           <div class="Hadron64-Scores">
             <For each={players()}>{(p, i) =>
               <>
-                {p.handle}: {scores()[p.uuid]}, 
+                <PlayerDot n={i()} /> {p.handle}: {scores()[p.uuid]}, 
               </>
             }</For>
           </div>
@@ -417,7 +432,7 @@ const Hadron64: Component<Room> = (props) => {
           <div class="Hadron64-Scores">
             <For each={players()}>{(p, i) =>
               <>
-                {p.handle}: {scores()[p.uuid]}, 
+                <PlayerDot n={i()} /> {p.handle}: {scores()[p.uuid]}, 
               </>
             }</For>
             If host, play again?
