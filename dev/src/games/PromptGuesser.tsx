@@ -267,7 +267,7 @@ const PromptGuesser: Component<Room> = (props) => {
             // TODO: do we want this timeout, or the host presses a button?
             window.setTimeout(() => {
               continueAfterScoring();
-            }, 10000);
+            }, 18000);
           }
         } else if (msg.type === "PlayerState") {
           const newStates = {...playerStates()}
