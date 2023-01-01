@@ -2,7 +2,7 @@ import { Component, createEffect, createSignal, Switch, Match, Show, For } from 
 import { supabase } from '../supabaseClient'
 import { useAuth } from "../AuthProvider";
 
-import { GameTypeString, Room } from '../GameTypes'
+import { GameType, Room } from '../GameTypes'
 
 const shuffle = <T,>(A: T[]) => {
   return A.map(value => ({ value, sort: Math.random() }))
@@ -11,16 +11,16 @@ const shuffle = <T,>(A: T[]) => {
 }
 
 
-const GAME_NAME: GameTypeString = "SDPromptGuess";
-
 interface PlayerHandle {
   handle: string,
   uuid: string
 }
-interface ImageCompletion {
+interface Generation {
+  generationType: string,
   player: PlayerHandle,
   prompt: string,
-  url: string
+  url?: string, // generationType === "image"
+  text?: string, // generationType === "text"
 }
 interface CaptionData {
   player: PlayerHandle,
@@ -41,6 +41,21 @@ enum GameState {
   Waiting, // Players only
 }
 
+const RenderGeneration: Component<{generation: Generation}> = (props) => {
+  return (
+    <>
+    <Switch>
+      <Match when={props.generation.generationType === "image"}>
+        <img src={props.generation.url} />
+      </Match>
+      <Match when={props.generation.generationType === "text"}>
+        <h3 style="white-space: pre-wrap;">{props.generation.text}</h3>
+      </Match>
+    </Switch>
+    </>
+  )
+}
+
 
 const SDPromptGuess: Component<Room> = (props) => {
   const { session, playerHandle, setPlayerHandle } = useAuth();
@@ -51,9 +66,9 @@ const SDPromptGuess: Component<Room> = (props) => {
   const [players, setPlayers] = createSignal<PlayerHandle[]>([])
   const [playerStates, setPlayerStates] = createSignal<Record<PlayerHandle["uuid"], GameState>>({})
   const [scores, setScores] = createSignal<Record<PlayerHandle["uuid"], number>>({})
-  const [images, setImages] = createSignal<ImageCompletion[]>([])
+  const [generations, setGenerations] = createSignal<Generation[]>([])
   const [captions, setCaptions] = createSignal<CaptionData[]>([])
-  const [captionImages, setCaptionImages] = createSignal<ImageCompletion[]>([])
+  const [captionGenerations, setCaptionGenerations] = createSignal<Generation[]>([])
   const [votes, setVotes] = createSignal<Vote[]>([])
   const [round, setRound] = createSignal<number>(1)
 
@@ -100,9 +115,9 @@ const SDPromptGuess: Component<Room> = (props) => {
         players: players(),
         playerStates: playerStates(),
         scores: scores(),
-        images: images(),
+        generations: generations(),
         captions: captions(),
-        captionImages: captionImages(),
+        captionGenerations: captionGenerations(),
         votes: votes(),
         round: round(),
       },
@@ -124,7 +139,7 @@ const SDPromptGuess: Component<Room> = (props) => {
       lastUpdate = (new Date()).getTime();
       lastUpdateMessageTimestamp = msg.data.timestamp;
       setCaptions(msg.data.captions);
-      setCaptionImages(msg.data.captionImages);
+      setCaptionGenerations(msg.data.captionGenerations);
       setPlayers(msg.data.players);
       setScores(msg.data.scores);
       setVotes(msg.data.votes);
@@ -187,12 +202,12 @@ const SDPromptGuess: Component<Room> = (props) => {
   }
 
   const continueAfterScoring = () => {
-    setCaptionImages(captionImages().slice(1));
-    if (captionImages().length === 0) {
+    setCaptionGenerations(captionGenerations().slice(1));
+    if (captionGenerations().length === 0) {
       if (round() < NUM_ROUNDS) {
         setRound(round() + 1);
         setGameState(GameState.WritingPrompts);
-        setImages([]);
+        setGenerations([]);
         setVotes([]);
       } else {
         setGameState(GameState.Finished);
@@ -216,10 +231,10 @@ const SDPromptGuess: Component<Room> = (props) => {
         if (msg.type === "NewPlayer" && gameState() === GameState.Lobby) {
           setPlayers(players().concat([msg.player]));
         } else if (msg.type === "Generation") {
-          setImages(images().concat(msg));
-          if (images().length === players().length) {
+          setGenerations(generations().concat(msg));
+          if (generations().length === players().length) {
             setCaptions([]);
-            setCaptionImages(JSON.parse(JSON.stringify(images()))); // hacky deep copy
+            setCaptionGenerations(JSON.parse(JSON.stringify(generations()))); // hacky deep copy
             setGameState(GameState.CreatingLies);
             hostMessage({});
           }
@@ -227,8 +242,8 @@ const SDPromptGuess: Component<Room> = (props) => {
           setCaptions(captions().concat(msg));
           if (captions().length === players().length - 1) {
             setCaptions(shuffle(captions().concat([{
-              player: captionImages()[0].player,
-              caption: captionImages()[0].prompt
+              player: captionGenerations()[0].player,
+              caption: captionGenerations()[0].prompt
             }])));
             setGameState(GameState.Voting);
             hostMessage({});
@@ -237,7 +252,7 @@ const SDPromptGuess: Component<Room> = (props) => {
           setVotes(votes().concat(msg));
           if (votes().length === players().length - 1) {
             const newScores = scores();
-            const drawingPlayer = captionImages()[0].player.uuid;
+            const drawingPlayer = captionGenerations()[0].player.uuid;
             votes().forEach(v => {
               if (v.vote.uuid === drawingPlayer) { // truth
                 newScores[v.player.uuid] += 1000;
@@ -267,7 +282,7 @@ const SDPromptGuess: Component<Room> = (props) => {
   const generateImage = async () => {
     setErrorMessage("");
     // Must store this, because the element goes away on state change.
-    const p = (document.getElementById("SDPrompt") as HTMLInputElement).value;
+    const p = (document.getElementById("GeneratingPrompt") as HTMLInputElement).value;
     setAndBroadcastPlayerGameState(GameState.Waiting);
     const { data } = await supabase.functions.invoke("diffuse", {
       body: JSON.stringify({
@@ -286,6 +301,30 @@ const SDPromptGuess: Component<Room> = (props) => {
     }
   }
 
+  const generateText = async () => {
+    // Must store this, because the element goes away on state change.
+    const p = (document.getElementById("GeneratingPrompt") as HTMLInputElement).value;
+    setAndBroadcastPlayerGameState(GameState.Waiting);
+    const { data, error } = await supabase.functions.invoke("textsynth", {
+      body: JSON.stringify({
+        room: props.roomId,
+        player: {handle: playerHandle(), uuid: session()?.user.id },
+        prompt: p
+      })
+    });
+    if (error) {
+      setErrorMessage(`Error when runnng textsynth: ${error}`);
+    }
+  }
+
+  const generate = () => {
+    if (props.gameType === GameType.SDPromptGuess) {
+      generateImage();
+    } else if (props.gameType === GameType.NeoXPromptGuess) {
+      generateText();
+    }
+  }
+
   const caption = async () => {
     const c = (document.getElementById("SDPromptLie") as HTMLInputElement).value
     clientMessage({ type: "CaptionResponse", caption: c });
@@ -299,7 +338,18 @@ const SDPromptGuess: Component<Room> = (props) => {
 
 	return (
     <>
-      <h3>Room code: {props.shortcode}</h3>
+      <h3>
+      Game: 
+      <Switch fallback={"Unrecognized Game Type"}>
+        <Match when={props.gameType === GameType.SDPromptGuess}>
+          Stable Diffusion Image Generation 
+        </Match>
+        <Match when={props.gameType === GameType.NeoXPromptGuess}>
+          NeoX Text Generation 
+        </Match>
+      </Switch>
+        | Room code: {props.shortcode} | You are: {playerHandle()}
+      </h3>
       <Switch fallback={<p>Invalid host state: {gameState()}</p>}>
         <Match when={gameState() === GameState.Lobby && props.roomId === null}>
           <h2>Initializing room...</h2>
@@ -321,17 +371,10 @@ const SDPromptGuess: Component<Room> = (props) => {
 
           <h2>Instructions:</h2>
           <ol>
-            <li>Host creates a game, gets a room code</li>
-            <li>Players join the room with the code</li>
-            <li>Players generate images based on a description</li>
-            <li>Images are shown one at a time,
-              <ol>
-                <li>All players (other than the one who made the image) give a description</li>
-                <li>Players see all descriptions (including the true one), and try to guess the true one</li>
-                <li>Players get points for A) guessing the true description, and B) other players guessing their description</li>
-              </ol>
-            </li>
-            <li>After several rounds, the game ends</li>
+            <li>Players join via the room code, host starts game once everyone is in</li>
+            <li>Prompt the image / text generator</li>
+            <li>Look at generated content, come up with alternate prompts</li>
+            <li>Get points for guessing the real prompt, or other players guessing your prompt</li>
           </ol>
 
           <h2>Notes:</h2>
@@ -343,19 +386,19 @@ const SDPromptGuess: Component<Room> = (props) => {
         </Match>
         <Match when={gameState() === GameState.WritingPrompts}>
           <h2>Round {round()} of {NUM_ROUNDS}, dispatching prompts...</h2>
-          <h3>Text generation may take a few seconds</h3>
+          <h3>Image and text generation may take a few seconds</h3>
           Beep boop beep
           <Show when={!props.isHost || isHostPlayer()}>
             <h2>Make something strange!</h2>
-            <input id="SDPrompt" placeholder="a cat with a taco hat"></input>
-            <button onclick={() => generateImage()}>Generate!</button>
+            <input id="GeneratingPrompt" placeholder="a cat with a taco hat"></input>
+            <button onclick={() => generate()}>Generate!</button>
           </Show>
         </Match>
         <Match when={gameState() === GameState.CreatingLies}>
           <h2>Round {round()} of {NUM_ROUNDS}, what generated:</h2>
-          <img src={captionImages()[0].url} />
+          <RenderGeneration generation={captionGenerations()[0]} />
           <Show when={!props.isHost || isHostPlayer()}>
-            <Show when={captionImages()[0].player.uuid !== session()?.user.id}
+            <Show when={captionGenerations()[0].player.uuid !== session()?.user.id}
                   fallback={"You are responsible for this masterpiece. Well done."} >
               <p>What prompt made this image?</p>
               <input id="SDPromptLie" type="text" placeholder="a dog dressed as a burrito"></input>
@@ -365,8 +408,8 @@ const SDPromptGuess: Component<Room> = (props) => {
         </Match>
         <Match when={gameState() === GameState.Voting}>
           <h2>Who made whatdo happen?</h2>
-          <img src={captionImages()[0].url} />
-          <Show when={(props.isHost && !isHostPlayer()) || captionImages()[0].player.uuid === session()?.user.id}>
+          <RenderGeneration generation={captionGenerations()[0]} />
+          <Show when={(props.isHost && !isHostPlayer()) || captionGenerations()[0].player.uuid === session()?.user.id}>
             <ol>
               <For each={captions()}>{(c, i) =>
                 <li><h3>{c.caption}</h3></li>
@@ -374,7 +417,7 @@ const SDPromptGuess: Component<Room> = (props) => {
             </ol>
           </Show>
           <Show when={!props.isHost || isHostPlayer()}>
-            <Show when={captionImages()[0].player.uuid !== session()?.user.id}
+            <Show when={captionGenerations()[0].player.uuid !== session()?.user.id}
                   fallback={"You are still responsible for this masterpiece. Nice."} >
               <h2>Which one is the truth?</h2>
               <For each={captions()}>{(c, i) =>
@@ -385,14 +428,14 @@ const SDPromptGuess: Component<Room> = (props) => {
             </Show>
           </Show>
         </Match>
-        {/* Having to specify captionImages().length here is bad.
-        It is because we can't simultaneously setGameState() AND setCaptionImages() when we get msg from Host.
+        {/* Having to specify captionGenerations().length here is bad.
+        It is because we can't simultaneously setGameState() AND setCaptionGenerations() when we get msg from Host.
         This is a real annoyance because we have to reason about the ordering of our data setting. */}
-        <Match when={gameState() === GameState.Scoring && captionImages().length > 0}>
+        <Match when={gameState() === GameState.Scoring && captionGenerations().length > 0}>
           <h2>What did people guess?</h2>
 
           {/* Go through the lies, show who picked them */}
-          <For each={players().filter(p => p.uuid !== captionImages()[0].player.uuid)}>{(p, i) =>
+          <For each={players().filter(p => p.uuid !== captionGenerations()[0].player.uuid)}>{(p, i) =>
             <>
             <div class="PromptGuess-ScoreRow">
               <div class="PromptGuess-ScoreRowCaption">
@@ -413,13 +456,13 @@ const SDPromptGuess: Component<Room> = (props) => {
 
           {/* Who picked the truth? */}
           <div class="PromptGuess-ScoreRow PromptGuess-ScoreRow--Truth">
-            <div class="PromptGuess-ScoreRowCaption">{captionImages()[0].prompt}</div>
-            <div class="PromptGuess-ScoreRowAuthor">by {captionImages()[0].player.handle}</div>
+            <div class="PromptGuess-ScoreRowCaption">{captionGenerations()[0].prompt}</div>
+            <div class="PromptGuess-ScoreRowAuthor">by {captionGenerations()[0].player.handle}</div>
             <div class="PromptGuess-ScoreRowGuessers">
               Guessers: 
             <For each={votes()}>{(v, i) =>
               <>
-                {captionImages()[0].player.uuid === v.vote.uuid ? `${v.player.handle}, ` : ""}
+                {captionGenerations()[0].player.uuid === v.vote.uuid ? `${v.player.handle}, ` : ""}
               </>
             }</For>
             </div>

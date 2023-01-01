@@ -23,7 +23,7 @@ const RenderGame: Component<{room: Room}> = (props) => {
   return (
     <Switch>
       <Match when={props.room.game === GameType.NeoXPromptGuess}>
-        <NeoXPromptGuess roomId={props.room.roomId} isHost={props.room.isHost} shortcode={props.room.shortcode} gameType={GameType.NeoXPromptGuess} />
+        <SDPromptGuess roomId={props.room.roomId} isHost={props.room.isHost} shortcode={props.room.shortcode} gameType={GameType.NeoXPromptGuess} />
       </Match>
       <Match when={props.room.game === GameType.SDPromptGuess}>
         <SDPromptGuess roomId={props.room.roomId} isHost={props.room.isHost} shortcode={props.room.shortcode} gameType={GameType.SDPromptGuess} />
