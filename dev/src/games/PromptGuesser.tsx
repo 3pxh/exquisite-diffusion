@@ -61,7 +61,8 @@ const PromptGuesser: Component<Room> = (props) => {
   const { session, playerHandle, setPlayerHandle } = useAuth();
 
   const [isHostPlayer, setIsHostPlayer] = createSignal<boolean>(false)
-  const [gameState, setGameState] = createSignal<GameState>(GameState.Lobby)
+  const [roomState, setRoomState] = createSignal<GameState>(GameState.Lobby)
+  const [playerState, setPlayerState] = createSignal<GameState>(GameState.Lobby)
   const [errorMessage, setErrorMessage] = createSignal<string | null>(null)
   const [players, setPlayers] = createSignal<PlayerHandle[]>([])
   const [playerStates, setPlayerStates] = createSignal<Record<PlayerHandle["uuid"], GameState>>({})
@@ -95,10 +96,10 @@ const PromptGuesser: Component<Room> = (props) => {
     });
   };
 
-  const setAndBroadcastPlayerGameState = (state: GameState) => {
+  const setAndBroadcastPlayerState = (state: GameState) => {
     if (!props.isHost || isHostPlayer()) {
-      const oldState = gameState();
-      setGameState(state);
+      const oldState = playerState();
+      setPlayerState(state);
       if (oldState !== state && playerStates()[session()?.user.id ?? ""] !== state) {
         clientMessage({type: "PlayerState", state: state});
       }
@@ -106,12 +107,13 @@ const PromptGuesser: Component<Room> = (props) => {
   }
 
   const hostMessage = async (msg: any) => {
+    
     // TODO: Guarantee that we have a room id, do error handling/reporting
     let { data, error, status } = await supabase.from('rooms').update({
       data: { 
         ...msg, 
         timestamp: (new Date()).getTime(),
-        gameState: gameState(),
+        gameState: roomState(),
         players: players(),
         playerStates: playerStates(),
         scores: scores(),
@@ -121,7 +123,7 @@ const PromptGuesser: Component<Room> = (props) => {
         votes: votes(),
         round: round(),
       },
-      host_state: GameState[gameState()]
+      host_state: GameState[roomState()]
     }).eq('id', props.roomId).select();
   }
 
@@ -138,6 +140,7 @@ const PromptGuesser: Component<Room> = (props) => {
       console.log("payload", msg.data)
       lastUpdate = (new Date()).getTime();
       lastUpdateMessageTimestamp = msg.data.timestamp;
+      setRound(msg.data.round);
       setCaptions(msg.data.captions);
       setCaptionGenerations(msg.data.captionGenerations);
       setPlayers(msg.data.players);
@@ -148,7 +151,7 @@ const PromptGuesser: Component<Room> = (props) => {
 
       // The player should not recognize state changes except when specifically annotated by the host.
       if (!msg.data.ignoreStateChange) {
-        setAndBroadcastPlayerGameState(msg.data.gameState);
+        setAndBroadcastPlayerState(msg.data.gameState);
       }
     }
   }
@@ -164,6 +167,10 @@ const PromptGuesser: Component<Room> = (props) => {
     // Initialize if mid-game
     supabase.from('rooms').select(`*`).eq('id', props.roomId).single().then(({ data, error, status }) => {
       handleClientUpdate(data);
+      // It's possible that the room has "ignoreStateChange" on it sigh.
+      // But the host state could be "waiting", set on the room after player states.
+      // Ugh. The host state and the room state should be distinct.
+      setAndBroadcastPlayerState(data.data.gameState);
       // Additionally, we should re-set our own name given the matching player uuid handle
       if (data.data.players) {
         data.data.players.forEach((p:any) => {
@@ -184,6 +191,14 @@ const PromptGuesser: Component<Room> = (props) => {
   //   }
   // }, 2000);
 
+  const setHostState = (s: GameState) => {
+    const newStates = {...playerStates()}
+    newStates[session()?.user.id!] = s;
+    setPlayerStates(newStates);
+    setRoomState(s);
+    setPlayerState(s);
+  }
+
   const startGame = () => {
     const hostName = (document.getElementById("hostName") as HTMLInputElement).value;
     if (hostName.length > 0) {
@@ -191,7 +206,7 @@ const PromptGuesser: Component<Room> = (props) => {
       setPlayerHandle(hostName); // Gross.
       setPlayers(players().concat([{handle: hostName, uuid: session()!.user.id}]));
     }
-    setGameState(GameState.WritingPrompts);
+    setHostState(GameState.WritingPrompts);
     const initScores:Record<PlayerHandle["uuid"], number> = {};
     players().forEach(p => { initScores[p.uuid] = 0; });
     setScores(initScores);
@@ -206,16 +221,16 @@ const PromptGuesser: Component<Room> = (props) => {
     if (captionGenerations().length === 0) {
       if (round() < NUM_ROUNDS) {
         setRound(round() + 1);
-        setGameState(GameState.WritingPrompts);
+        setHostState(GameState.WritingPrompts);
         setGenerations([]);
         setVotes([]);
       } else {
-        setGameState(GameState.Finished);
+        setHostState(GameState.Finished);
       }
     } else {
       setCaptions([]);
       setVotes([]);
-      setGameState(GameState.CreatingLies);
+      setHostState(GameState.CreatingLies);
     }
     hostMessage({});
   }
@@ -228,14 +243,14 @@ const PromptGuesser: Component<Room> = (props) => {
         event: 'INSERT', schema: 'public', table: 'messages', filter: `room=eq.${id}` 
       }, payload => {
         const msg = payload.new.data;
-        if (msg.type === "NewPlayer" && gameState() === GameState.Lobby) {
+        if (msg.type === "NewPlayer" && roomState() === GameState.Lobby) {
           setPlayers(players().concat([msg.player]));
         } else if (msg.type === "Generation") {
           setGenerations(generations().concat(msg));
           if (generations().length === players().length) {
             setCaptions([]);
             setCaptionGenerations(JSON.parse(JSON.stringify(generations()))); // hacky deep copy
-            setGameState(GameState.CreatingLies);
+            setHostState(GameState.CreatingLies);
             hostMessage({});
           }
         } else if (msg.type === "CaptionResponse") {
@@ -245,7 +260,7 @@ const PromptGuesser: Component<Room> = (props) => {
               player: captionGenerations()[0].player,
               caption: captionGenerations()[0].prompt
             }])));
-            setGameState(GameState.Voting);
+            setHostState(GameState.Voting);
             hostMessage({});
           }
         } else if (msg.type === "CaptionVote") {
@@ -262,7 +277,7 @@ const PromptGuesser: Component<Room> = (props) => {
               }
             })
             setScores(newScores);
-            setGameState(GameState.Scoring);
+            setHostState(GameState.Scoring);
             hostMessage({});
             // TODO: do we want this timeout, or the host presses a button?
             window.setTimeout(() => {
@@ -283,7 +298,7 @@ const PromptGuesser: Component<Room> = (props) => {
     setErrorMessage("");
     // Must store this, because the element goes away on state change.
     const p = (document.getElementById("GeneratingPrompt") as HTMLInputElement).value;
-    setAndBroadcastPlayerGameState(GameState.Waiting);
+    setAndBroadcastPlayerState(GameState.Waiting);
     const { data } = await supabase.functions.invoke("diffuse", {
       body: JSON.stringify({
         room: props.roomId,
@@ -297,14 +312,14 @@ const PromptGuesser: Component<Room> = (props) => {
       } else {
         setErrorMessage(`Error calling Stable Diffusion: ${JSON.stringify(data.error)}`);
       }
-      setAndBroadcastPlayerGameState(GameState.WritingPrompts);
+      setAndBroadcastPlayerState(GameState.WritingPrompts);
     }
   }
 
   const generateText = async () => {
     // Must store this, because the element goes away on state change.
     const p = (document.getElementById("GeneratingPrompt") as HTMLInputElement).value;
-    setAndBroadcastPlayerGameState(GameState.Waiting);
+    setAndBroadcastPlayerState(GameState.Waiting);
     const { data, error } = await supabase.functions.invoke("textsynth", {
       body: JSON.stringify({
         room: props.roomId,
@@ -328,12 +343,12 @@ const PromptGuesser: Component<Room> = (props) => {
   const caption = async () => {
     const c = (document.getElementById("SDPromptLie") as HTMLInputElement).value
     clientMessage({ type: "CaptionResponse", caption: c });
-    setAndBroadcastPlayerGameState(GameState.Waiting);
+    setAndBroadcastPlayerState(GameState.Waiting);
   }
 
   const vote = async (player: PlayerHandle) => {
     clientMessage({ type: "CaptionVote", vote: player });
-    setAndBroadcastPlayerGameState(GameState.Waiting);
+    setAndBroadcastPlayerState(GameState.Waiting);
   }
 
 	return (
@@ -350,11 +365,11 @@ const PromptGuesser: Component<Room> = (props) => {
       </Switch>
         | Room code: {props.shortcode} | You are: {playerHandle()}
       </h3>
-      <Switch fallback={<p>Invalid host state: {gameState()}</p>}>
-        <Match when={gameState() === GameState.Lobby && props.roomId === null}>
+      <Switch fallback={<p>Invalid host state: {playerState()}</p>}>
+        <Match when={playerState() === GameState.Lobby && props.roomId === null}>
           <h2>Initializing room...</h2>
         </Match>
-        <Match when={gameState() === GameState.Lobby && props.roomId !== null}>
+        <Match when={playerState() === GameState.Lobby && props.roomId !== null}>
           <h2>To join go to 3pxh.com, join with room code: {props.shortcode}</h2>
           {players().length} in lobby:
           <ul>
@@ -384,7 +399,7 @@ const PromptGuesser: Component<Room> = (props) => {
             <li>Please send feedback to geÖrge Ät hÖqqanen dÖt cÖm</li>
           </ul>
         </Match>
-        <Match when={gameState() === GameState.WritingPrompts}>
+        <Match when={playerState() === GameState.WritingPrompts}>
           <h2>Round {round()} of {NUM_ROUNDS}, dispatching prompts...</h2>
           <h3>Image and text generation may take a few seconds</h3>
           Beep boop beep
@@ -394,7 +409,7 @@ const PromptGuesser: Component<Room> = (props) => {
             <button onclick={() => generate()}>Generate!</button>
           </Show>
         </Match>
-        <Match when={gameState() === GameState.CreatingLies}>
+        <Match when={playerState() === GameState.CreatingLies}>
           <h2>Round {round()} of {NUM_ROUNDS}, what generated:</h2>
           <RenderGeneration generation={captionGenerations()[0]} />
           <Show when={!props.isHost || isHostPlayer()}>
@@ -406,7 +421,7 @@ const PromptGuesser: Component<Room> = (props) => {
             </Show>
           </Show>
         </Match>
-        <Match when={gameState() === GameState.Voting}>
+        <Match when={playerState() === GameState.Voting}>
           <h2>Who made whatdo happen?</h2>
           <RenderGeneration generation={captionGenerations()[0]} />
           <Show when={(props.isHost && !isHostPlayer()) || captionGenerations()[0].player.uuid === session()?.user.id}>
@@ -429,9 +444,9 @@ const PromptGuesser: Component<Room> = (props) => {
           </Show>
         </Match>
         {/* Having to specify captionGenerations().length here is bad.
-        It is because we can't simultaneously setGameState() AND setCaptionGenerations() when we get msg from Host.
+        It is because we can't simultaneously setplayerState() AND setCaptionGenerations() when we get msg from Host.
         This is a real annoyance because we have to reason about the ordering of our data setting. */}
-        <Match when={gameState() === GameState.Scoring && captionGenerations().length > 0}>
+        <Match when={playerState() === GameState.Scoring && captionGenerations().length > 0}>
           <h2>What did people guess?</h2>
 
           {/* Go through the lies, show who picked them */}
@@ -474,13 +489,13 @@ const PromptGuesser: Component<Room> = (props) => {
           }</For>
           {/* TODO: if host, have a "continue" button? */}
         </Match>
-        <Match when={gameState() === GameState.Finished}>
+        <Match when={playerState() === GameState.Finished}>
           <h2>Final Scores!</h2>
           <For each={players()}>{(p, i) =>
             <h3>{p.handle} has {scores()[p.uuid]} points</h3>
           }</For>
         </Match>
-        <Match when={gameState() === GameState.Waiting}>
+        <Match when={playerState() === GameState.Waiting}>
           Waiting for other players (or the computer) to finish up...
 
           <For each={players()}>{(p, i) =>
