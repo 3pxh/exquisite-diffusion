@@ -321,7 +321,7 @@ const Hadron64: Component<Room> = (props) => {
               setGameState(GameState.Finished);
               hostMessage({type: "Finished"});
             }
-          }, 5000);
+          }, 10000);
         }
       }).subscribe();
   }
