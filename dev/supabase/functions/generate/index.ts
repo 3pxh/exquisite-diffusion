@@ -14,41 +14,82 @@ serve(async (req) => {
 		return new Response('ok', { headers: corsHeaders });
 	}
 
-  const { prompt, player, room } = await req.json()
+  const r = await req.json();
   const supabaseClient = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
     Deno.env.get('SUPABASE_ANON_KEY') ?? '',
     { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
   );
-  const genData = await generate(supabaseClient, prompt);
-  console.log("Got a prompt:", prompt)
+
+  // TODO: Check that the player can access the room
+  // r.room, r.player.uuid
+  // TODO: Check that the room owner has credit
+
+  // Run the generation.
+  let responseData = {};
+  if (r.generationType === "image") {
+    responseData = serveImage(supabaseClient, r);
+  } else if (r.generationType === "text") {
+    responseData = serveText(supabaseClient, r);
+  }
+
+  // TODO: Note the usage on the room owner's credit?
+  return new Response(
+    JSON.stringify(responseData),
+    { headers: {...corsHeaders, "Content-Type": "application/json" } },
+  )
+})
+
+async function serveText(supabaseClient:any, req:any) {
+  console.log("text prompt:", req.prompt)
+  const textsynthKey = Deno.env.get('TEXTSYNTH_API_KEY');
+  const apiUrl = 'https://api.textsynth.com';
+  const model = 'gptneox_20B'; // 'gptneox_6B';
+  const synth = await fetch(apiUrl + '/v1/engines/' + model + '/completions', {
+    headers: { Authorization: 'Bearer ' + textsynthKey },
+    method: 'POST',
+    body: JSON.stringify({ prompt: req.prompt })
+  });
+  const synthJson = await synth.json();
+
+  let { data, error, status } = await supabaseClient.from('messages').insert({
+    room: req.room,
+    user_id: req.player.uuid,
+    data: {
+      type: "Generation",
+      generationType: "text",
+      player: req.player,
+      prompt: req.prompt,
+      text: synthJson.text,
+    }
+  });
+
+  return {}
+}
+
+async function serveImage(supabaseClient:any, req:any) {
+  const genData = await generateImage(supabaseClient, req.prompt);
   if (!genData.error) {
     let { data, error, status } = await supabaseClient.from('messages').insert({
-      room: room,
-      user_id: player.uuid,
+      room: req.room,
+      user_id: req.player.uuid,
       data: {
         type: "Generation",
         generationType: "image",
-        player: player,
-        prompt: prompt,
+        player: req.player,
+        prompt: req.prompt,
         url: genData.url.publicUrl,
         seed: 0 // In case we want to get/save that from SD
       }
     });
-    return new Response(
-      JSON.stringify(status),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    )
+    return status
   } else {
-    return new Response(
-      JSON.stringify(genData),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    )
+    return genData
   }
-})
+}
 
-
-async function generate(supabaseClient: any, prompt: string) {
+async function generateImage(supabaseClient: any, prompt: string) {
+  console.log("image prompt:", prompt)
   const engineId = 'stable-diffusion-512-v2-0';
   const apiHost = 'https://api.stability.ai';
   const url = `${apiHost}/v1alpha/generation/${engineId}/text-to-image`;

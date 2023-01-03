@@ -293,50 +293,28 @@ const PromptGuesser: Component<Room> = (props) => {
         }
       }).subscribe();
   }
-  
-  const generateImage = async () => {
+
+  const generate = async () => {
+    const generationType = props.gameType === GameType.SDPromptGuess ? "image" : "text";
     setErrorMessage("");
     // Must store this, because the element goes away on state change.
     const p = (document.getElementById("GeneratingPrompt") as HTMLInputElement).value;
     setAndBroadcastPlayerState(GameState.Waiting);
-    const { data } = await supabase.functions.invoke("diffuse", {
+    const { data } = await supabase.functions.invoke("generate", {
       body: JSON.stringify({
         room: props.roomId,
         player: {handle: playerHandle(), uuid: session()?.user.id },
-        prompt: p
+        prompt: p,
+        generationType: generationType,
       })
     });
     if (data.error) {
       if (data.error.name === "invalid_prompts") {
         setErrorMessage(`"${p}" was an invalid prompt, it probably contained a filtered word. Try again.`);
       } else {
-        setErrorMessage(`Error calling Stable Diffusion: ${JSON.stringify(data.error)}`);
+        setErrorMessage(`Error generating content: ${JSON.stringify(data.error)}`);
       }
       setAndBroadcastPlayerState(GameState.WritingPrompts);
-    }
-  }
-
-  const generateText = async () => {
-    // Must store this, because the element goes away on state change.
-    const p = (document.getElementById("GeneratingPrompt") as HTMLInputElement).value;
-    setAndBroadcastPlayerState(GameState.Waiting);
-    const { data, error } = await supabase.functions.invoke("textsynth", {
-      body: JSON.stringify({
-        room: props.roomId,
-        player: {handle: playerHandle(), uuid: session()?.user.id },
-        prompt: p
-      })
-    });
-    if (error) {
-      setErrorMessage(`Error when runnng textsynth: ${error}`);
-    }
-  }
-
-  const generate = () => {
-    if (props.gameType === GameType.SDPromptGuess) {
-      generateImage();
-    } else if (props.gameType === GameType.NeoXPromptGuess) {
-      generateText();
     }
   }
 
