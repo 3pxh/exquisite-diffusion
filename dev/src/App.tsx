@@ -30,6 +30,9 @@ const RenderGame: Component<{room: Room}> = (props) => {
       <Match when={props.room.game === GameType.Hadron64}>
         <Hadron64 roomId={props.room.roomId} isHost={props.room.isHost} shortcode={props.room.shortcode} gameType={GameType.Hadron64} />
       </Match>
+      <Match when={props.room.game === GameType.Gisticle}>
+        <PromptGuesser roomId={props.room.roomId} isHost={props.room.isHost} shortcode={props.room.shortcode} gameType={GameType.Gisticle} />
+      </Match>
     </Switch>
   )
 }

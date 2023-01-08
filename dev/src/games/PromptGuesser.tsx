@@ -10,6 +10,9 @@ const shuffle = <T,>(A: T[]) => {
           .map(({ value }) => value);
 }
 
+const chooseOne = <T,>(A: T[]) => {
+  return A[Math.floor(Math.random() * A.length)];
+}
 
 interface PlayerHandle {
   handle: string,
@@ -20,7 +23,8 @@ interface Generation {
   player: PlayerHandle,
   prompt: string,
   url?: string, // generationType === "image"
-  text?: string, // generationType === "text"
+  text?: string, // generationType === "text" | "list"
+  gisticlePrefix?: string, // generationType === "list"
 }
 interface CaptionData {
   player: PlayerHandle,
@@ -51,11 +55,21 @@ const RenderGeneration: Component<{generation: Generation}> = (props) => {
       <Match when={props.generation.generationType === "text"}>
         <h3 style="white-space: pre-wrap;">{props.generation.text}</h3>
       </Match>
+      <Match when={props.generation.generationType === "list"}>
+        {/* Include the prefix here? Or no. */}
+        <h3 style="white-space: pre-wrap;">{props.generation.text}</h3>
+      </Match>
     </Switch>
     </>
   )
 }
 
+const GISTICLE_PREFIXES = [
+  "List the top 5 best",
+  "List the top 5 reasons you should",
+  "List the top 5 most ridiculous ways to",
+  "List the top 5 most obvious signs",
+];
 
 const PromptGuesser: Component<Room> = (props) => {
   const { session, playerHandle, setPlayerHandle } = useAuth();
@@ -72,6 +86,7 @@ const PromptGuesser: Component<Room> = (props) => {
   const [captionGenerations, setCaptionGenerations] = createSignal<Generation[]>([])
   const [votes, setVotes] = createSignal<Vote[]>([])
   const [round, setRound] = createSignal<number>(1)
+  const [gisticlePrefix, setGisticlePrefix] = createSignal<string>(chooseOne(GISTICLE_PREFIXES))
 
   const NUM_ROUNDS = 3;
 
@@ -279,10 +294,6 @@ const PromptGuesser: Component<Room> = (props) => {
             setScores(newScores);
             setHostState(GameState.Scoring);
             hostMessage({});
-            // TODO: do we want this timeout, or the host presses a button?
-            window.setTimeout(() => {
-              continueAfterScoring();
-            }, 18000);
           }
         } else if (msg.type === "PlayerState") {
           const newStates = {...playerStates()}
@@ -295,7 +306,12 @@ const PromptGuesser: Component<Room> = (props) => {
   }
 
   const generate = async () => {
-    const generationType = props.gameType === GameType.SDPromptGuess ? "image" : "text";
+    const GEN_MAP:any = {
+      [GameType.SDPromptGuess]: "image",
+      [GameType.NeoXPromptGuess]: "text",
+      [GameType.Gisticle]: "list",
+    }
+    const generationType = GEN_MAP[props.gameType];
     setErrorMessage("");
     // Must store this, because the element goes away on state change.
     const p = (document.getElementById("GeneratingPrompt") as HTMLInputElement).value;
@@ -305,6 +321,7 @@ const PromptGuesser: Component<Room> = (props) => {
         room: props.roomId,
         player: {handle: playerHandle(), uuid: session()?.user.id },
         prompt: p,
+        gisticlePrefix: gisticlePrefix(),
         generationType: generationType,
       })
     });
@@ -315,6 +332,8 @@ const PromptGuesser: Component<Room> = (props) => {
         setErrorMessage(`Error generating content: ${JSON.stringify(data.error)}`);
       }
       setAndBroadcastPlayerState(GameState.WritingPrompts);
+    } else {
+      setGisticlePrefix(chooseOne(GISTICLE_PREFIXES));
     }
   }
 
@@ -335,10 +354,13 @@ const PromptGuesser: Component<Room> = (props) => {
       Game: 
       <Switch fallback={"Unrecognized Game Type"}>
         <Match when={props.gameType === GameType.SDPromptGuess}>
-          Stable Diffusion Image Generation 
+          Farsketched
         </Match>
         <Match when={props.gameType === GameType.NeoXPromptGuess}>
-          NeoX Text Generation 
+          False Starts 
+        </Match>
+        <Match when={props.gameType === GameType.Gisticle}>
+          Gisticle
         </Match>
       </Switch>
         | Room code: {props.shortcode} | You are: {playerHandle()}
@@ -383,7 +405,10 @@ const PromptGuesser: Component<Room> = (props) => {
           Beep boop beep
           <Show when={!props.isHost || isHostPlayer()}>
             <h2>Make something strange!</h2>
-            <input id="GeneratingPrompt" placeholder="a cat with a taco hat"></input>
+            <Show when={ props.gameType === GameType.Gisticle }>
+              <h3>{gisticlePrefix()}</h3>
+            </Show>
+            <input id="GeneratingPrompt" placeholder=""></input>
             <button onclick={() => generate()}>Generate!</button>
           </Show>
         </Match>
@@ -393,7 +418,10 @@ const PromptGuesser: Component<Room> = (props) => {
           <Show when={!props.isHost || isHostPlayer()}>
             <Show when={captionGenerations()[0].player.uuid !== session()?.user.id}
                   fallback={"You are responsible for this masterpiece. Well done."} >
-              <p>What prompt made this image?</p>
+              <p>What prompt made this?</p>
+              <Show when={ props.gameType === GameType.Gisticle }>
+                <h3>{captionGenerations()[0].gisticlePrefix}</h3>
+              </Show>
               <input id="SDPromptLie" type="text" placeholder="a dog dressed as a burrito"></input>
               <button onclick={() => caption()}>Oh yeah!</button>
             </Show>
@@ -403,6 +431,9 @@ const PromptGuesser: Component<Room> = (props) => {
           <h2>Who made whatdo happen?</h2>
           <RenderGeneration generation={captionGenerations()[0]} />
           <Show when={(props.isHost && !isHostPlayer()) || captionGenerations()[0].player.uuid === session()?.user.id}>
+            <Show when={ props.gameType === GameType.Gisticle }>
+              <h3>{captionGenerations()[0].gisticlePrefix}...</h3>
+            </Show>
             <ol>
               <For each={captions()}>{(c, i) =>
                 <li><h3>{c.caption}</h3></li>
@@ -413,6 +444,9 @@ const PromptGuesser: Component<Room> = (props) => {
             <Show when={captionGenerations()[0].player.uuid !== session()?.user.id}
                   fallback={"You are still responsible for this masterpiece. Nice."} >
               <h2>Which one is the truth?</h2>
+              <Show when={ props.gameType === GameType.Gisticle }>
+                <h3>{captionGenerations()[0].gisticlePrefix}...</h3>
+              </Show>
               <For each={captions()}>{(c, i) =>
                   <p><button onclick={() => vote(c.player)}
                     disabled={c.player.uuid === session()?.user.id}
@@ -466,6 +500,9 @@ const PromptGuesser: Component<Room> = (props) => {
             <h3>{p.handle} has {scores()[p.uuid]} points</h3>
           }</For>
           {/* TODO: if host, have a "continue" button? */}
+          <Show when={props.isHost}>
+            <button onclick={continueAfterScoring}><h3>Continue</h3></button>
+          </Show>
         </Match>
         <Match when={playerState() === GameState.Finished}>
           <h2>Final Scores!</h2>

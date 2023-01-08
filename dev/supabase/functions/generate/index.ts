@@ -31,6 +31,8 @@ serve(async (req) => {
     responseData = serveImage(supabaseClient, r);
   } else if (r.generationType === "text") {
     responseData = serveText(supabaseClient, r);
+  } else if (r.generationType === "list") {
+    responseData = serveList(supabaseClient, r);
   }
 
   // TODO: Note the usage on the room owner's credit?
@@ -39,6 +41,45 @@ serve(async (req) => {
     { headers: {...corsHeaders, "Content-Type": "application/json" } },
   )
 })
+
+async function serveList(supabaseClient:any, req:any) {
+  console.log("list prompt:", req.prompt);
+  const openaiKey = Deno.env.get('OPENAI_API_KEY');
+  const apiUrl = 'https://api.openai.com/v1/completions';
+  const res = await fetch(apiUrl, {
+    headers: { Authorization: 'Bearer ' + openaiKey, "Content-Type": "application/json" },
+    method: 'POST',
+    body: JSON.stringify({
+      "model": "text-davinci-003",
+      "prompt": `${req.gisticlePrefix} ${req.prompt}, don't explain why.\n\n`,
+      "temperature": 0.7,
+      "max_tokens": 256,
+      "top_p": 1,
+      "frequency_penalty": 0,
+      "presence_penalty": 0
+    })
+  });
+  const resjson = await res.json();
+  // TODO: Errors? Haha.
+  console.log("openai response", resjson);
+  const completion = resjson.choices[0].text;
+  console.log("completion:", completion);
+
+  let { data, error, status } = await supabaseClient.from('messages').insert({
+    room: req.room,
+    user_id: req.player.uuid,
+    data: {
+      type: "Generation",
+      generationType: "list",
+      player: req.player,
+      gisticlePrefix: req.gisticlePrefix,
+      prompt: req.prompt,
+      text: completion,
+    }
+  });
+
+  return { data, error, status };
+}
 
 async function serveText(supabaseClient:any, req:any) {
   console.log("text prompt:", req.prompt)

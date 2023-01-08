@@ -40,16 +40,20 @@ const GameSelection: Component<{chooseGame: (g: GameType, roomId: number, shortc
       <>
       <h2>Create a game:</h2>
       <button onclick={() => {createRoom(GameType.NeoXPromptGuess)}}>
-        <h3>Text Generation</h3>
+        <h3>False Starts</h3>
         <p>Players seed a text generator, and try to fake out others based on the output texts.</p>
       </button>
       <button onclick={() => {createRoom(GameType.SDPromptGuess)}}>
-        <h3>Image Generation</h3>
+        <h3>Farsketched</h3>
         <p>Players seed an image generator, and try to fake out others based on the output images.</p>
       </button>
       <button onclick={() => {createRoom(GameType.Hadron64)}}>
         <h3>Hadron 64</h3>
         <p>Race to match patterns</p>
+      </button>
+      <button onclick={() => {createRoom(GameType.Gisticle)}}>
+        <h3>Gisticle</h3>
+        <p>Make up silly lists and try to fool one another</p>
       </button>
       </>}
 		</div>
