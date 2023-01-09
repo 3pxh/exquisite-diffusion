@@ -53,7 +53,7 @@ const Chatroom: Component<{roomId: number}> = (props) => {
   return (
     <div id="Chatroom">
       <div id="Chatroom-Header">
-        <button onclick={toggleOpen} > {isOpen() ? "close" : "open chat"}</button>
+        <button onclick={toggleOpen} > {isOpen() ? "↘" : "↖"}</button>
       </div>
       {isOpen() ? <>
         <div id="Chatroom-Messages">

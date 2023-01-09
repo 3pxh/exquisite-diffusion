@@ -67,7 +67,7 @@ body {
   flex-direction: column;
   max-height: 400px;
   padding: 5px;
-  position: absolute;
+  position: fixed;
   right: 0;
   max-width: 400px;
 }
