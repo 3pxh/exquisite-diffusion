@@ -250,6 +250,36 @@ const PromptGuesser: Component<Room> = (props) => {
     hostMessage({});
   }
 
+  const changeState = (g: GameState) => {
+    if (g === GameState.CreatingLies) {
+      setCaptions([]);
+      setCaptionGenerations(JSON.parse(JSON.stringify(generations()))); // hacky deep copy
+      setHostState(GameState.CreatingLies);
+      hostMessage({});
+    } else if (g === GameState.Voting) {
+      setCaptions(shuffle(captions().concat([{
+        player: captionGenerations()[0].player,
+        caption: captionGenerations()[0].prompt
+      }])));
+      setHostState(GameState.Voting);
+      hostMessage({});
+    } else if (g === GameState.Scoring) {
+      const newScores = scores();
+      const drawingPlayer = captionGenerations()[0].player.uuid;
+      votes().forEach(v => {
+        if (v.vote.uuid === drawingPlayer) { // truth
+          newScores[v.player.uuid] += 1000;
+          newScores[drawingPlayer] += 1000;
+        } else { // lie
+          newScores[v.vote.uuid] += 500;
+        }
+      })
+      setScores(newScores);
+      setHostState(GameState.Scoring);
+      hostMessage({});
+    }
+  }
+
   // HOST subscribes to MESSAGES
   const subscribeToMessages = (id: number) => {
     supabase
@@ -264,37 +294,17 @@ const PromptGuesser: Component<Room> = (props) => {
         } else if (msg.type === "Generation") {
           setGenerations(generations().concat(msg));
           if (generations().length === players().length) {
-            setCaptions([]);
-            setCaptionGenerations(JSON.parse(JSON.stringify(generations()))); // hacky deep copy
-            setHostState(GameState.CreatingLies);
-            hostMessage({});
+            changeState(GameState.CreatingLies);
           }
         } else if (msg.type === "CaptionResponse") {
           setCaptions(captions().concat(msg));
           if (captions().length === players().length - 1) {
-            setCaptions(shuffle(captions().concat([{
-              player: captionGenerations()[0].player,
-              caption: captionGenerations()[0].prompt
-            }])));
-            setHostState(GameState.Voting);
-            hostMessage({});
+            changeState(GameState.Voting);
           }
         } else if (msg.type === "CaptionVote") {
           setVotes(votes().concat(msg));
           if (votes().length === players().length - 1) {
-            const newScores = scores();
-            const drawingPlayer = captionGenerations()[0].player.uuid;
-            votes().forEach(v => {
-              if (v.vote.uuid === drawingPlayer) { // truth
-                newScores[v.player.uuid] += 1000;
-                newScores[drawingPlayer] += 1000;
-              } else { // lie
-                newScores[v.vote.uuid] += 500;
-              }
-            })
-            setScores(newScores);
-            setHostState(GameState.Scoring);
-            hostMessage({});
+            changeState(GameState.Scoring)
           }
         } else if (msg.type === "PlayerState") {
           const newStates = {...playerStates()}
@@ -355,16 +365,17 @@ const PromptGuesser: Component<Room> = (props) => {
       Game: 
       <Switch fallback={"Unrecognized Game Type"}>
         <Match when={props.gameType === GameType.SDPromptGuess}>
-          Farsketched
+          Farsketched 
         </Match>
         <Match when={props.gameType === GameType.NeoXPromptGuess}>
           False Starts 
         </Match>
         <Match when={props.gameType === GameType.Gisticle}>
-          Gisticle
+          Gisticle 
         </Match>
       </Switch>
         | Room code: {props.shortcode} | You are: {playerHandle()}
+
       </h3>
       <Switch fallback={<p>Invalid host state: {playerState()}</p>}>
         <Match when={playerState() === GameState.Lobby && props.roomId === null}>
@@ -467,7 +478,7 @@ const PromptGuesser: Component<Room> = (props) => {
             <>
             <div class="PromptGuess-ScoreRow">
               <div class="PromptGuess-ScoreRowCaption">
-                {captions().find(c => c.player.uuid === p.uuid)?.caption}
+                {captions().find(c => c.player.uuid === p.uuid)?.caption ?? ""}
               </div>
               <div class="PromptGuess-ScoreRowAuthor">by {p.handle}</div>
               <div class="PromptGuess-ScoreRowGuessers">
