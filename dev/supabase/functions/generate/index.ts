@@ -26,20 +26,28 @@ serve(async (req) => {
   // TODO: Check that the room owner has credit
 
   // Run the generation.
-  let responseData = {};
-  if (r.generationType === "image") {
-    responseData = serveImage(supabaseClient, r);
-  } else if (r.generationType === "text") {
-    responseData = serveText(supabaseClient, r);
-  } else if (r.generationType === "list") {
-    responseData = serveList(supabaseClient, r);
-  }
+  try {
+    let responseData = {};
+    if (r.generationType === "image") {
+      responseData = serveImage(supabaseClient, r);
+    } else if (r.generationType === "text") {
+      responseData = serveText(supabaseClient, r);
+    } else if (r.generationType === "list") {
+      responseData = serveList(supabaseClient, r);
+    }
 
-  // TODO: Note the usage on the room owner's credit?
-  return new Response(
-    JSON.stringify(responseData),
-    { headers: {...corsHeaders, "Content-Type": "application/json" } },
-  )
+    // TODO: Note the usage on the room owner's credit?
+    return new Response(
+      JSON.stringify(responseData),
+      { headers: {...corsHeaders, "Content-Type": "application/json" } },
+    )
+  } catch (e) {
+    console.error(r.generationType, e);
+    return new Response(
+      JSON.stringify({error: e}),
+      { headers: {...corsHeaders, "Content-Type": "application/json" } },
+    )
+  }
 })
 
 async function serveList(supabaseClient:any, req:any) {
