@@ -260,6 +260,7 @@ const PromptGuesser: Component<Room> = (props) => {
         const msg = payload.new.data;
         if (msg.type === "NewPlayer" && roomState() === GameState.Lobby) {
           setPlayers(players().concat([msg.player]));
+          hostMessage({});
         } else if (msg.type === "Generation") {
           setGenerations(generations().concat(msg));
           if (generations().length === players().length) {
@@ -496,7 +497,7 @@ const PromptGuesser: Component<Room> = (props) => {
           </div>
           
           <h2>Scores:</h2>
-          <For each={players()}>{(p, i) =>
+          <For each={players().sort((p1, p2) => scores()[p2.uuid] - scores()[p1.uuid])}>{(p, i) =>
             <h3>{p.handle} has {scores()[p.uuid]} points</h3>
           }</For>
           {/* TODO: if host, have a "continue" button? */}
@@ -506,7 +507,7 @@ const PromptGuesser: Component<Room> = (props) => {
         </Match>
         <Match when={playerState() === GameState.Finished}>
           <h2>Final Scores!</h2>
-          <For each={players()}>{(p, i) =>
+          <For each={players().sort((p1, p2) => scores()[p2.uuid] - scores()[p1.uuid])}>{(p, i) =>
             <h3>{p.handle} has {scores()[p.uuid]} points</h3>
           }</For>
         </Match>
