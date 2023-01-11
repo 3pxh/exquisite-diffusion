@@ -45,6 +45,24 @@ enum GameState {
   Waiting, // Players only
 }
 
+const PlayerStates: Component<{
+    players: PlayerHandle[], 
+    playerStates: Record<PlayerHandle["uuid"], GameState>}
+  > = (props) => {
+  return (
+    <For each={props.players}>{(p, i) =>
+      <>
+        <Show when={props.playerStates[p.uuid] === GameState.Waiting}>
+          <p>{p.handle} is done</p>
+        </Show>
+        <Show when={props.playerStates[p.uuid] !== GameState.Waiting}>
+        <p>{p.handle} is still working</p>
+        </Show>
+      </>
+      }</For>
+  )
+}
+
 const RenderGeneration: Component<{generation: Generation}> = (props) => {
   return (
     <>
@@ -326,6 +344,7 @@ const PromptGuesser: Component<Room> = (props) => {
           const newStates = {...playerStates()}
           newStates[msg.player.uuid] = msg.state;
           setPlayerStates(newStates);
+          console.log("new states", newStates)
           // This is just a data relay, plus the host could be a player and be Waiting, so we must ignore!
           hostMessage({ignoreStateChange: true});
         }
@@ -447,7 +466,10 @@ const PromptGuesser: Component<Room> = (props) => {
           <RenderGeneration generation={captionGenerations()[0]} />
           <Show when={!props.isHost || isHostPlayer()}>
             <Show when={captionGenerations()[0].player.uuid !== session()?.user.id}
-                  fallback={"You are responsible for this masterpiece. Well done."} >
+                  fallback={<>
+                  You are responsible for this masterpiece. Well done.
+                  <PlayerStates players={players()} playerStates={playerStates()} />
+                  </>} >
               <p>What prompt made this?</p>
               <Show when={ props.gameType === GameType.Gisticle }>
                 <h3>{captionGenerations()[0].gisticlePrefix}</h3>
@@ -472,7 +494,10 @@ const PromptGuesser: Component<Room> = (props) => {
           </Show>
           <Show when={!props.isHost || isHostPlayer()}>
             <Show when={captionGenerations()[0].player.uuid !== session()?.user.id}
-                  fallback={"You are still responsible for this masterpiece. Nice."} >
+                  fallback={<>
+                    You are still responsible for this masterpiece. Nice.
+                    <PlayerStates players={players()} playerStates={playerStates()} />
+                  </>} >
               <h2>Which one is the truth?</h2>
               <Show when={ props.gameType === GameType.Gisticle }>
                 <h3>{captionGenerations()[0].gisticlePrefix}...</h3>
@@ -542,17 +567,7 @@ const PromptGuesser: Component<Room> = (props) => {
         </Match>
         <Match when={playerState() === GameState.Waiting}>
           Waiting for other players (or the computer) to finish up...
-
-          <For each={players()}>{(p, i) =>
-          <>
-            <Show when={playerStates()[p.uuid] === GameState.Waiting}>
-              <p>{p.handle} is done</p>
-            </Show>
-            <Show when={playerStates()[p.uuid] !== GameState.Waiting}>
-            <p>{p.handle} is still working</p>
-            </Show>
-          </>
-          }</For>
+          <PlayerStates players={players()} playerStates={playerStates()} />
         </Match>
       </Switch>
       <Show when={errorMessage() !== null}>
