@@ -250,6 +250,22 @@ const PromptGuesser: Component<Room> = (props) => {
     hostMessage({});
   }
 
+  const manuallyProgressState = () => {
+    const SEQUENCE = [
+      GameState.WritingPrompts,
+      GameState.CreatingLies,
+      GameState.Voting,
+      GameState.Scoring
+    ];
+    const currentState = roomState();
+    if (currentState === GameState.Scoring) {
+      continueAfterScoring();
+    } else {
+      const i = SEQUENCE.findIndex(g => g === currentState);
+      changeState(SEQUENCE[i+1]);
+    }
+  }
+
   const changeState = (g: GameState) => {
     if (g === GameState.CreatingLies) {
       setCaptions([]);
@@ -375,7 +391,9 @@ const PromptGuesser: Component<Room> = (props) => {
         </Match>
       </Switch>
         | Room code: {props.shortcode} | You are: {playerHandle()}
-
+        <Show when={props.isHost}>
+          <button onclick={manuallyProgressState}>Force Continue</button>
+        </Show>
       </h3>
       <Switch fallback={<p>Invalid host state: {playerState()}</p>}>
         <Match when={playerState() === GameState.Lobby && props.roomId === null}>
