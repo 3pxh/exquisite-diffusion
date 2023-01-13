@@ -51,7 +51,7 @@ const App: Component = () => {
 
 	return (
     <div class="App">
-      (DXT test)
+      (DXT test??)
       <Switch>
         <Match when={session() === null}>
           <AuthSelection />
