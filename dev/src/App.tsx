@@ -56,8 +56,8 @@ const App: Component = () => {
           <AuthSelection />
         </Match>
         <Match when={room() !== null}>
-          <RenderGame room={room()!} />
           <Chatroom roomId={room()!.roomId} />
+          <RenderGame room={room()!} />
         </Match>
         <Match when={authState() === AuthType.ANON}>
           <p>You are logged in anonymously. Join a room below!</p>

@@ -53,7 +53,7 @@ body {
 }
 
 .GameSelection, .JoinGame {
-  width: 600px;
+  max-width: 600px;
 }
 .GameSelection > button {
   margin: 4px 0;
@@ -69,7 +69,8 @@ body {
   padding: 5px;
   position: fixed;
   right: 0;
-  max-width: 400px;
+  max-width: min(400px, 90%);
+  z-index: 10;
 }
 
 #Chatroom-Messages {
@@ -86,11 +87,11 @@ body {
   flex-shrink: 1;
   padding-top: 2px;
 }
-#Chatroom-Input span, #Chatroom-Input button {
-  flex-shrink: 1;
+#Chatroom-Input button {
+  padding: 5px 0;
 }
 #Chatroom-Input input {
-  flex: 1 1 auto;
+  min-width: 10px;
   margin: 0 4px;
 }
 
