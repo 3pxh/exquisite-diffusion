@@ -55,6 +55,10 @@ const GameSelection: Component<{chooseGame: (g: GameType, roomId: number, shortc
         <h3>Gisticle</h3>
         <p>Make up silly lists and try to fool one another</p>
       </button>
+      <button onclick={() => {createRoom(GameType.PG)}}>
+        <h3>PG</h3>
+        <p>Testing new engine</p>
+      </button>
       </>}
 		</div>
 	)

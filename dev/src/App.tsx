@@ -6,6 +6,7 @@ import Chatroom from './Chatroom';
 
 import PromptGuesser from './games/PromptGuesser'
 import Hadron64 from './games/Hadron64';
+import PG from './games/PG'
 
 import JoinGame from './JoinGame'
 import GameSelection from './GameSelection'
@@ -18,7 +19,7 @@ interface Room {
   isHost: boolean,
 }
 
-const RenderGame: Component<{room: Room}> = (props) => {
+const RenderGame: Component<{room: Room, userId: string}> = (props) => {
   return (
     <Switch>
       <Match when={props.room.game === GameType.NeoXPromptGuess}>
@@ -32,6 +33,9 @@ const RenderGame: Component<{room: Room}> = (props) => {
       </Match>
       <Match when={props.room.game === GameType.Gisticle}>
         <PromptGuesser roomId={props.room.roomId} isHost={props.room.isHost} shortcode={props.room.shortcode} gameType={GameType.Gisticle} />
+      </Match>
+      <Match when={props.room.game === GameType.PG}>
+        <PG roomId={props.room.roomId} isHost={props.room.isHost} userId={props.userId} />
       </Match>
     </Switch>
   )
@@ -58,7 +62,7 @@ const App: Component = () => {
         </Match>
         <Match when={room() !== null}>
           <Chatroom roomId={room()!.roomId} />
-          <RenderGame room={room()!} />
+          <RenderGame room={room()!} userId={session()?.user.id!} />
         </Match>
         <Match when={authState() === AuthType.ANON}>
           <p>You are logged in anonymously. Join a room below!</p>
