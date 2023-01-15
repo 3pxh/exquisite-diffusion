@@ -23,6 +23,7 @@ export class EngineBase<GameState, Message> {
   userId: string
   isHost: boolean
   hostReducers: Reducer<GameState, Message>[]
+  clientReducers: Reducer<GameState, GameState>[]
   gameState: GameState
   setGameState: SetStoreFunction<GameState>
 
@@ -36,6 +37,7 @@ export class EngineBase<GameState, Message> {
     this.setGameState = setGameState;
     
     this.hostReducers = [];
+    this.clientReducers = [];
 
     if (gameInit.isHost) { 
       // Right now room creation is taken care of by GameSelection.tsx
@@ -52,11 +54,6 @@ export class EngineBase<GameState, Message> {
     }).eq('id', this.roomId).select();
     if (error) {
       EngineBase.onError({name: "Could not init room", error});
-    } else {
-      // await supabase.from('participants').insert({
-      //   user: this.userId,
-      //   room: data?.id,
-      // });
     }
   }
 
@@ -65,26 +62,33 @@ export class EngineBase<GameState, Message> {
       .on('postgres_changes', { 
         event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` 
       }, data => {
-        this.#handleClientUpdate(data.new.data as unknown as GameState)
+        this.#runClientReducers(data.new.data as unknown as GameState)
       }).subscribe();
     // Load in the initial game state by fetching the room once, allows re-joining.
     supabase.from('rooms').select(`*`).eq('id', roomId).single().then(({ data, error, status }) => {
       // TODO: how could we register various named error handlers?
-      this.#handleClientUpdate(data.data ?? {} as unknown as GameState);
+      this.#runClientReducers(data.data ?? {} as unknown as GameState);
     });
   }
 
-  #handleClientUpdate(g: GameState) {
-    this.setGameState(g);
+  #runClientReducers(newGameState: GameState) {
+    // this.setGameState(g);
+    this.setGameState(produce((oldGameState: GameState) => {
+      this.clientReducers.forEach((cr) => {
+        cr(oldGameState, newGameState);
+      });
+    }));
   }
 
-  async sendClientMessage(m: Message) {
-    let { data, error, status } = await supabase.from('messages').insert({
+  sendClientMessage(m: Message) {
+    console.log("sending", m)
+    supabase.from('messages').insert({
       room: this.roomId,
       user_id: this.userId, // Needed for RLS
       data: m,
+    }).then(({ data, error, status }) => {
+      if (error) { EngineBase.onError({name: "Could not send client message", error}); }
     });
-    if (error) { EngineBase.onError({name: "Could not send client message", error}); }
   }
 
   subscribeToMessages(roomId: number) {
@@ -105,25 +109,41 @@ export class EngineBase<GameState, Message> {
 
   #runHostReducers(m: Message) {
     this.setGameState(produce((gs: GameState) => {
-      // gs.history = [...gs.history, m];
       this.hostReducers.forEach((hr) => {
         hr(gs, m)
       });
     }));
   }
 
-  async #sendHostUpdate() {
-    let { data, error, status } = await supabase.from('rooms').update({
+  mutateGameState(f: (gs: GameState) => void) {
+    this.setGameState(produce(f));
+  }
+
+  mutateAndBroadcastGameState(f: (gs: GameState) => void) {
+    if (!this.isHost) {
+      EngineBase.onError({name: "Trying to broadcast game state but not a host."})
+    } else {
+      this.setGameState(produce(f));
+      this.#sendHostUpdate();
+    }
+  }
+
+  #sendHostUpdate() {
+    supabase.from('rooms').update({
       data: { 
         ...unwrap(this.gameState), 
         timestamp: (new Date()).getTime(),
       },
-    }).eq('id', this.roomId).select();
-    if (error) { EngineBase.onError({name: "Could not send host update", error}); }
+    }).eq('id', this.roomId).select().then(({ data, error, status }) => {
+      if (error) { EngineBase.onError({name: "Could not send host update", error}); }
+    });
   }
 
   registerHostReducer(r: Reducer<GameState, Message>) {
     this.hostReducers.push(r);
+  }
+  registerClientReducer(r: Reducer<GameState, GameState>) {
+    this.clientReducers.push(r);
   }
 
   static onError(e: any) {
