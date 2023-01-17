@@ -1,9 +1,11 @@
 import { Component, createEffect, createSignal, Switch, Match, Show, For } from 'solid-js'
+import { useAuth } from "../AuthProvider";
 import { PromptGuessGameEngine, State } from './engines/PromptGuessBase'
 import { Room } from './engines/EngineBase'
 import Scoreboard from './components/Scoreboard'
 
 const PG: Component<Room> = (props) => {
+  const { session, playerHandle, setPlayerHandle } = useAuth();
   const [inputVal, setInputVal] = createSignal<string>("")
 
   // We could totally pass in a game engine, allowing for subclassing and such,
@@ -15,32 +17,38 @@ const PG: Component<Room> = (props) => {
     shortcode: props.shortcode,
   });
 
+  engine.updatePlayer({
+    handle: playerHandle()
+  });
+
+  const playerState = () => { return engine.player().state; }
+
 	return (
     <>
       <h3>Room code: {props.shortcode}</h3>
-      player state: {engine.gameState.playerState}
+      player state: {playerState()} {JSON.stringify(engine.player())}
       <Switch fallback={"Unrecognized Game State"}>
-        <Match when={engine.gameState.playerState === State.Lobby}>
+        <Match when={playerState() === State.Lobby}>
           Lobby
           <Show when={engine.isHost}>
             <button onclick={() => engine.startGame()}>Start</button>
           </Show>
         </Match>
-        <Match when={engine.gameState.playerState === State.WritingPrompts}>
+        <Match when={playerState() === State.WritingPrompts}>
           <h2>Make something fun</h2>
           <input onchange={(e) => { setInputVal(e.currentTarget.value) }} />
           <button onclick={() => engine.generate(inputVal())}>Make it so!</button>
         </Match>
-        <Match when={engine.gameState.playerState === State.CreatingLies}>
+        <Match when={playerState() === State.CreatingLies}>
           <h2>What made this?</h2>
           {JSON.stringify(engine.gameState.generations[0])}
-          <Show when={engine.gameState.generations[0].player.uuid !== props.userId}
+          <Show when={engine.gameState.generations[0].player.id !== props.userId}
             fallback={"You are responsible for this masterpiece. Well done."}>
             <input onchange={(e) => { setInputVal(e.currentTarget.value) }} />
             <button onclick={() => engine.caption(inputVal())}>Make it so!</button>
           </Show>
         </Match>
-        <Match when={engine.gameState.playerState === State.Voting}>
+        <Match when={playerState() === State.Voting}>
           Which prompt made it?
           <ol>
             <For each={engine.gameState.captions}>{(c, i) =>
@@ -48,32 +56,23 @@ const PG: Component<Room> = (props) => {
             }</For>
           </ol> 
         </Match>
-        <Match when={engine.gameState.playerState === State.Scoring}>
-          <Scoreboard players={engine.gameState.players} scores={engine.gameState.scores} />
+        <Match when={playerState() === State.Scoring}>
+          <Scoreboard players={engine.players()} scores={engine.gameState.scores} />
         </Match>
-        <Match when={engine.gameState.playerState === State.Finished}>
+        <Match when={playerState() === State.Finished}>
           <h2>Final Scores:</h2>
-          <Scoreboard players={engine.gameState.players} scores={engine.gameState.scores} />
+          <Scoreboard players={engine.players()} scores={engine.gameState.scores} />
         </Match>
-        <Match when={engine.gameState.playerState === State.Waiting}>
+        <Match when={playerState() === State.Waiting}>
           Waiting 
         </Match>
       </Switch>
 
-      <Show when={engine.gameState.playerState !== State.Lobby}>
-        <For each={engine.gameState.players}>{(p, i) => {
+      <Show when={playerState() !== State.Lobby}>
+        <For each={engine.players()}>{(p, i) => {
           return <p>{p.handle} is {p.state === State.Waiting ? 'done' : 'still working'}</p>
         }}</For>
-      </Show>
-
-      <For each={engine.gameState.history}>{(c, i) => {
-        return <p>{JSON.stringify(c)}</p>
-      }}</For>
-
-      <For each={engine.players}>{(p, i) => {
-        return <p style="color:green;">{JSON.stringify(p)}</p>
-      }}</For>
-      
+      </Show>      
     </>
 	)
 }

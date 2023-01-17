@@ -2,7 +2,8 @@ import { supabase } from '../../supabaseClient'
 
 import { createStore, produce, SetStoreFunction, unwrap } from "solid-js/store";
 
-import { AbstractPlayer2 } from './types';
+import { AbstractPlayer } from './types';
+import { Accessor, createSignal, Setter } from 'solid-js';
 
 // Currently these mutate the game state rather than returning,
 // not sure if there's a more pure way with solid stores.
@@ -21,16 +22,18 @@ export type GameInstance<GameState> = Room & {
   initState: GameState
 }
 
-export class EngineBase<GameState, Message> {
+export class EngineBase<GameState, Message, Player extends AbstractPlayer> {
   roomId: number
   userId: string
   isHost: boolean
   hostReducers: Reducer<GameState, Message>[]
   clientReducers: Reducer<GameState, GameState>[]
-  players: AbstractPlayer2[]
-  setPlayers: SetStoreFunction<AbstractPlayer2[]>
   gameState: GameState
   setGameState: SetStoreFunction<GameState>
+  player: Accessor<Player>
+  setPlayer: Setter<Player>
+  players: Accessor<Player[]>
+  setPlayers: Setter<Player[]>
 
   constructor(gameInit: GameInstance<GameState>) {
     this.roomId = gameInit.roomId;
@@ -43,7 +46,8 @@ export class EngineBase<GameState, Message> {
     
     this.hostReducers = [];
     this.clientReducers = [];
-    [this.players, this.setPlayers] = createStore([] as AbstractPlayer2[]);
+    [this.player, this.setPlayer] = createSignal({id: this.userId} as Player);
+    [this.players, this.setPlayers] = createSignal([{id: this.userId}] as Player[]);
 
     this.subscribeToParticipants(gameInit.roomId);
 
@@ -56,6 +60,22 @@ export class EngineBase<GameState, Message> {
     }
   }
 
+  updatePlayer(p: Partial<Player>) {
+    console.log("updating player", p, this.player())
+    const up = Object.assign({...this.player()}, p)
+    this.setPlayer(up as any);
+    supabase.from('participants').update({
+      room: this.roomId,
+      user: this.userId,
+      data: up,
+    }).eq('user', this.userId).eq('room', this.roomId).then(({ data, error, status }) => {
+      if (error) { EngineBase.onError({name: "Could not update participant", error}); }
+    });
+    console.log("set players", this.players().map(p => up.id === p.id ? up : p))
+    // Aggressively update ourselves in the player list.
+    this.setPlayers(this.players().map(p => up.id === p.id ? up : p));
+  }
+
   async initRoom() {
     let { data, error, status } = await supabase.from('rooms').update({
       data: this.gameState,
@@ -66,25 +86,37 @@ export class EngineBase<GameState, Message> {
   }
 
   subscribeToParticipants(roomId: number) {
-    supabase.channel(`public:participants:room=eq.${roomId}`)
-      .on('postgres_changes', { 
-        event: 'UPDATE', schema: 'public', table: 'participants', filter: `room=eq.${roomId}` 
-      }, data => {
-        console.log("participant update", data.new);
-        const playerIndex = this.players.findIndex(p => p.id === data.new.id);
-        if (playerIndex >= 0) {
-          this.setPlayers(this.players.findIndex(p => p.id === data.new.id), data.new);
-        }
-      }).subscribe();
+    // Forgive the needless complexity of this... it has a function.
+    // This is a big ass rigamaroll in order to preserve the extant player data.
+    // Whenever we get updated or new records, we make sure to check if we already
+    // have the player (it could be us) and then merge properties in.
+    supabase.from('participants').select(`*`).eq('room', roomId).then(({ data, error, status }) => {
+      if (data) {
+        const oldPlayers = this.players().map(p => {
+          return Object.assign(p, data.find(p2 => p.id === p2.id) ?? {});
+        })
+        const newPlayers = data.map(p => (p.data && !oldPlayers.find(p2 => p2.id === p.data.id)) ? p.data : null).filter(p => p);
+        this.setPlayers(oldPlayers.concat(newPlayers));
+      }
+    });
     supabase.channel(`public:participants:room=eq.${roomId}`)
       .on('postgres_changes', { 
         event: 'INSERT', schema: 'public', table: 'participants', filter: `room=eq.${roomId}` 
       }, data => {
-        this.setPlayers([...this.players, data.new as AbstractPlayer2]);
+        if (!this.players().find(p => data.new.user === p.id)) {
+          this.setPlayers([...this.players(), (data.new.data || {id: data.new.user}) as Player]);
+        }
+      }).on('postgres_changes', { 
+        event: 'UPDATE', schema: 'public', table: 'participants', filter: `room=eq.${roomId}` 
+      }, data => {
+        const player = data.new.data || {id: data.new.user};
+        if (!this.players().find(p => player.id === p.id)) {
+          this.setPlayers([...this.players(), player as Player]);
+        } else {
+          this.setPlayers(this.players().map(p => 
+            player.id === p.id ? Object.assign(Object.assign({}, p), player) : p));
+        }
       }).subscribe();
-    supabase.from('participants').select(`*`).eq('room', roomId).then(({ data, error, status }) => {
-      this.setPlayers(data ? [...data] : [])
-    });
   }
 
   subscribeToRoom(roomId: number) {
@@ -102,7 +134,6 @@ export class EngineBase<GameState, Message> {
   }
 
   #runClientReducers(newGameState: GameState) {
-    // this.setGameState(g);
     this.setGameState(produce((oldGameState: GameState) => {
       this.clientReducers.forEach((cr) => {
         cr(oldGameState, newGameState);
@@ -111,7 +142,7 @@ export class EngineBase<GameState, Message> {
   }
 
   sendClientMessage(m: Message) {
-    console.log("sending", m)
+    // TODO: do we want to let callees revert on errors?
     supabase.from('messages').insert({
       room: this.roomId,
       user_id: this.userId, // Needed for RLS

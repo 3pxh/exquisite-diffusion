@@ -76,7 +76,7 @@ async function serveList(supabaseClient:any, req:any) {
 
   let { data, error, status } = await supabaseClient.from('messages').insert({
     room: req.room,
-    user_id: req.player.uuid,
+    user_id: req.player.uuid || req.player.id,
     data: {
       type: "Generation",
       generationType: "list",
@@ -112,7 +112,7 @@ async function serveText(supabaseClient:any, req:any) {
 
   let { data, error, status } = await supabaseClient.from('messages').insert({
     room: req.room,
-    user_id: req.player.uuid,
+    user_id: req.player.uuid || req.player.id,
     data: {
       type: "Generation",
       generationType: "text",
@@ -137,7 +137,7 @@ async function serveImage(supabaseClient:any, req:any) {
   if (!genData.error) {
     let { data, error, status } = await supabaseClient.from('messages').insert({
       room: req.room,
-      user_id: req.player.uuid,
+      user_id: req.player.uuid || req.player.id,
       data: {
         type: "Generation",
         generationType: "image",
