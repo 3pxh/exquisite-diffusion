@@ -30,8 +30,12 @@ const PG: Component<Room> = (props) => {
       <Switch fallback={"Unrecognized Game State"}>
         <Match when={playerState() === State.Lobby}>
           Lobby
+          <For each={engine.players()}>{(p, i) => {
+            return <p>{p.handle ?? "New player"} is here!</p>
+          }}</For>
           <Show when={engine.isHost}>
-            <button onclick={() => engine.startGame()}>Start</button>
+            <input onchange={(e) => { setInputVal(e.currentTarget.value) }} />
+            <button onclick={() => engine.startGame(inputVal())}>Start</button>
           </Show>
         </Match>
         <Match when={playerState() === State.WritingPrompts}>
@@ -58,6 +62,9 @@ const PG: Component<Room> = (props) => {
         </Match>
         <Match when={playerState() === State.Scoring}>
           <Scoreboard players={engine.players()} scores={engine.gameState.scores} />
+          <Show when={props.isHost}>
+            <button onclick={() => { engine.continueAfterScoring() }}>Continue</button>
+          </Show>
         </Match>
         <Match when={playerState() === State.Finished}>
           <h2>Final Scores:</h2>
@@ -72,7 +79,7 @@ const PG: Component<Room> = (props) => {
         <For each={engine.players()}>{(p, i) => {
           return <p>{p.handle} is {p.state === State.Waiting ? 'done' : 'still working'}</p>
         }}</For>
-      </Show>      
+      </Show>     
     </>
 	)
 }

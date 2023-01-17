@@ -62,7 +62,7 @@ type GameState = {
   generations: Generation[],
   captions: Caption[],
   votes: Vote[],
-  scores: PGScore[],
+  scores: Record<Player["id"], PGScore>,
   round: number,
   version: "1.0.0",
 }
@@ -73,7 +73,7 @@ function initState(): GameState {
     generations: [],    
     captions: [],
     votes: [],
-    scores: [],
+    scores: {},
     round: 1,
     version: "1.0.0",
   }
@@ -112,7 +112,27 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
           author: m.vote!
         }];
         if (gs.votes.length === this.players().length - 1) {
-          this.setHostState(State.Scoring);
+          const scoreMutation = (gs: GameState) => {
+            const scoreDeltas:Record<Player["id"], PGScore> = {};
+            gs.votes.forEach(v => {
+              if (v.author === gs.generations[0].player.id) {
+                gs.scores[v.voter].iVoteTruth += 1;
+                gs.scores[v.voter].previous = gs.scores[v.voter].current;
+                gs.scores[v.voter].current += 1000;
+
+                gs.scores[v.author].myTruthsVoted += 1;
+                gs.scores[v.author].previous = gs.scores[v.author].current;
+                gs.scores[v.author].current += 1000;
+              } else {
+                gs.scores[v.voter].iVoteLies += 1;
+
+                gs.scores[v.author].myLiesVoted += 1;
+                gs.scores[v.author].previous = gs.scores[v.author].current;
+                gs.scores[v.author].current += 500;
+              }
+            })
+          }
+          this.setHostState(State.Scoring, scoreMutation);
         }
       }
     });
@@ -131,10 +151,15 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
     })
   }
 
-  async startGame() {
+  async startGame(hostName: string) {
+    if (hostName) {
+      this.updatePlayer({ handle: hostName });
+      // TODO: Otherwise let's continue as a non-player host?
+    }
     this.setHostState(State.WritingPrompts, (gs: GameState) => {
-      gs.scores = this.players().map(p => {
-        return {
+      const initScores:Record<Player["id"], PGScore> = {}
+      this.players().forEach(p => {
+        initScores[p.id] = {
           player: p.id, 
           current: 0, 
           previous: 0,
@@ -144,6 +169,7 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
           iVoteTruth: 0,
         };
       })
+      gs.scores = initScores;
     });
   }
 
@@ -151,6 +177,24 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
     if (this.player().state !== s) {
       super.updatePlayer({ state: s });
     }
+  }
+
+  continueAfterScoring() {
+    this.setHostState(State.CreatingLies, (gs: GameState) => {
+      gs.generations = gs.generations.slice(1);
+      gs.votes = [];
+      gs.captions = [];
+      if (gs.generations.length === 0 && gs.round === 3) {
+        gs.roomState = State.Finished;
+        this.setHostState(State.Finished);
+      } else if (gs.generations.length === 0 && gs.round < 3) {
+        gs.round += 1;
+        gs.roomState = State.WritingPrompts;
+        this.setHostState(State.WritingPrompts);
+      } else {
+        gs.roomState = State.CreatingLies;
+      }
+    });
   }
 
   async generate(prompt: string) {
