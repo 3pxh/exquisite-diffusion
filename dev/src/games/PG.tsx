@@ -36,7 +36,7 @@ const PG: Component<Room> = (props) => {
 
           <p class="GameHeader-player">
             <span>Hey, </span>
-            <img class="GameHeader-avatar" src="/src/assets/avatars/1.png" alt="" />
+            <img class="GameHeader-avatar" src="/src/assets/avatars/1.png" alt={engine.player().handle} />
             <span>{engine.player().handle}!</span>
           </p>
 
@@ -51,16 +51,29 @@ const PG: Component<Room> = (props) => {
       <Switch fallback={"Unrecognized Game State"}>
         <Match when={playerState() === State.Lobby}>
           <div class="GameLobby">
-            <p>
-              Game Lobby
-            </p>
-            <For each={engine.players()}>{(p, i) => {
-              return <p>{p.handle ?? "New player"} is here!</p>
-            }}</For>
-            <Show when={engine.isHost}>
-              <input onchange={(e) => { setInputVal(e.currentTarget.value) }} />
-              <button onclick={() => engine.startGame(inputVal())}>Start</button>
-            </Show>
+            <div class="_container">
+              <p class="GameLobby-headline">
+                Game Lobby
+              </p>
+
+              {engine.players && engine.players().length > 0 && 
+                <ul class="GameLobby-players">
+                  <For each={engine.players()}>{(p, i) => {
+                    return (
+                      <li class="GameLobby-player">
+                        <img class="GameLobby-avatar" src="/src/assets/avatars/1.png" alt={p.handle ?? "New player"} />
+                        {p.handle ?? "New player"}
+                      </li>
+                    )
+                  }}</For>
+                </ul>
+              }
+
+              <Show when={engine.isHost}>
+                <input onchange={(e) => { setInputVal(e.currentTarget.value) }} />
+                <button onclick={() => engine.startGame(inputVal())}>Start</button>
+              </Show>
+            </div>
           </div>
         </Match>
         <Match when={playerState() === State.WritingPrompts}>
