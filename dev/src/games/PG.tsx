@@ -25,18 +25,43 @@ const PG: Component<Room> = (props) => {
 
 	return (
     <>
-      <h3>Room code: {props.shortcode}</h3>
-      player state: {playerState()} {JSON.stringify(engine.player())}
+      <div class="GameHeader">
+        <div class="_container">
+          <p class="GameHeader-room">
+            <strong>Room code: </strong>
+            <span class="GameHeader-room-code">
+              {props.shortcode}
+            </span>
+          </p>
+
+          <p class="GameHeader-player">
+            <span>Hey, </span>
+            <img class="GameHeader-avatar" src="/src/assets/avatars/1.png" alt="" />
+            <span>{engine.player().handle}!</span>
+          </p>
+
+          <p class="GameHeader-game">
+            You're playing <strong>game name</strong>
+          </p>
+
+          {/* player state: {playerState()} {JSON.stringify(engine.player())} */}
+        </div>
+      </div>
+
       <Switch fallback={"Unrecognized Game State"}>
         <Match when={playerState() === State.Lobby}>
-          Lobby
-          <For each={engine.players()}>{(p, i) => {
-            return <p>{p.handle ?? "New player"} is here!</p>
-          }}</For>
-          <Show when={engine.isHost}>
-            <input onchange={(e) => { setInputVal(e.currentTarget.value) }} />
-            <button onclick={() => engine.startGame(inputVal())}>Start</button>
-          </Show>
+          <div class="GameLobby">
+            <p>
+              Game Lobby
+            </p>
+            <For each={engine.players()}>{(p, i) => {
+              return <p>{p.handle ?? "New player"} is here!</p>
+            }}</For>
+            <Show when={engine.isHost}>
+              <input onchange={(e) => { setInputVal(e.currentTarget.value) }} />
+              <button onclick={() => engine.startGame(inputVal())}>Start</button>
+            </Show>
+          </div>
         </Match>
         <Match when={playerState() === State.WritingPrompts}>
           <h2>Make something fun</h2>
@@ -79,7 +104,7 @@ const PG: Component<Room> = (props) => {
         <For each={engine.players()}>{(p, i) => {
           return <p>{p.handle} is {p.state === State.Waiting ? 'done' : 'still working'}</p>
         }}</For>
-      </Show>     
+      </Show>
     </>
 	)
 }

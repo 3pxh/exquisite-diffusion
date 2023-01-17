@@ -1,3 +1,12 @@
+/* Global */
+* {
+  color: var(--custom-color);
+  font-family: var(--custom-font-family);
+  box-sizing: border-box;
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+}
+
 html,
 body {
   --custom-font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen, Ubuntu,
@@ -18,22 +27,52 @@ body {
   padding: 0;
 }
 
-* {
+/* Utilities */
+._container {
+  margin: 0 auto;
+  max-width: 1140px;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+/* Typography */
+p {
+  margin-bottom: 0;
+  margin-top: 0;
+}
+
+/* Forms */
+button {
   color: var(--custom-color);
-  font-family: var(--custom-font-family);
-  box-sizing: border-box;
+  border: var(--custom-border);
+  background-color: var(--custom-bg-color);
+  display: inline-block;
+  text-align: center;
+  border-radius: var(--custom-border-radius);
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  text-align: center;
+  font-size: 0.9rem;
 }
 
-.App {
-  align-items: center;
-  display: flex;
-  flex-direction: column;
+button:disabled {
+  opacity: 50%;
 }
 
-.App > div {
-  margin: 4px 0;
+button:hover { 
+  background-color: var(--custom-panel-color);
 }
 
+input {
+  border-radius: 5px;
+  border: var(--custom-border);
+  padding: 8px;
+  font-size: 0.9rem;
+  background-color: var(--custom-bg-color);
+  color: var(--custom-color);
+}
+
+/* Auth */
 .AuthSelection-AuthType {
   border: 1px solid #DDD;
   border-radius: var(--custom-border-radius);
@@ -52,13 +91,7 @@ body {
   font-size: 12pt;
 }
 
-.GameSelection, .JoinGame {
-  max-width: 600px;
-}
-.GameSelection > button {
-  margin: 4px 0;
-}
-
+/* Chatroom */
 #Chatroom {
   background-color: var(--custom-bg-color);
   border: 1px solid white;
@@ -87,50 +120,22 @@ body {
   flex-shrink: 1;
   padding-top: 2px;
 }
+
 #Chatroom-Input button {
   padding: 5px 0;
 }
+
 #Chatroom-Input input {
   min-width: 10px;
   margin: 0 4px;
 }
 
-button {
-  color: var(--custom-color);
-  border: var(--custom-border);
-  background-color: var(--custom-bg-color);
-  display: inline-block;
-  text-align: center;
-  border-radius: var(--custom-border-radius);
-  padding: 0.5rem 1rem;
-  cursor: pointer;
-  text-align: center;
-  font-size: 0.9rem;
-}
-
-button:disabled {
-  opacity: 50%;
-}
-
-input {
-  border-radius: 5px;
-  border: var(--custom-border);
-  padding: 8px;
-  font-size: 0.9rem;
-  background-color: var(--custom-bg-color);
-  color: var(--custom-color);
-}
-
-* {
-  box-sizing: border-box;
-  -webkit-box-sizing: border-box; /* Safari/Chrome, other WebKit */
-  -moz-box-sizing: border-box;
-}
-
+/* Cards */
 .Card {
   /* Why in the hell doesn't border-box work here? b/c rerender? */
   border: 1px solid rgba(0,0,0,0);
 }
+
 .Card--selected {
   border: 1px dashed #CCC;
 }
@@ -140,6 +145,7 @@ input {
   flex-direction: row;
 }
 
+/* Hadron64 */
 .Hadron64-Scores {
   align-items: center;
   display: flex;
@@ -156,20 +162,24 @@ input {
 .HadronDot-Color--0 {
   background-color: #DDAA33;
 }
+
 .HadronDot-Color--1 {
   background-color: #BB5566;
 }
+
 .HadronDot-Color--2 {
   background-color: #004488;
 }
+
 .HadronDot-Color--3 {
   background-color: white;
 }
+
 .HadronDot-Color--100 {
   background-color: transparent;
 }
 
-
+/* Prompt Guessing */
 .PromptGuess-ScoreRow {
   border-bottom: 1px solid #CCC;
   display: flex;
@@ -194,4 +204,99 @@ input {
 
 .PromptGuess-ScoreRow--Truth .PromptGuess-ScoreRowCaption {
   color: rgb(0, 255, 0);
+}
+
+/* Game Header */
+.GameHeader {
+  background-color: #219ebc;
+  padding-bottom: 3rem;
+  padding-top: 3rem;
+  position: relative;
+}
+
+.GameHeader-player {
+  align-items: center;
+  display: flex;
+  font-size: 1.5rem;
+  margin-top: 0;
+  margin-bottom: .5rem;
+}
+
+.GameHeader-game {
+  font-size: 2.5rem;
+}
+
+.GameHeader-room {
+  background-color: #023047;
+  border-bottom-left-radius: .25rem;
+  padding: .75rem 1.25rem;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.GameHeader-room-code { 
+  font-family: 'Courier New';
+}
+
+.GameHeader-avatar { 
+  border-radius: 50%;
+  height: 32px;
+  margin-left: .5rem;
+  margin-right: .25rem;
+  width: 32px;
+}
+
+/* Game Lobby */
+.GameLobby { 
+  background-color: #8ecae6;
+  padding-bottom: 1.5rem;
+  padding-top: 1.5rem;
+}
+
+/* Notice */
+.Notice { 
+  background-color: #fb8500;
+  display: block;
+  font-weight: bold;
+  padding-bottom: .5rem;
+  padding-top: .5rem;
+  text-align: center;
+  width: 100%;
+}
+
+/* Auth */
+.Auth {
+  max-width: 350px;
+  padding-top: 1.5rem;
+}
+
+/* Join Game */
+.JoinGame { 
+  max-width: 600px;
+}
+
+.JoinGame-label { 
+  display: block;
+  margin-bottom: .25rem;
+}
+
+.JoinGame-item { 
+  margin-bottom: 1rem;
+}
+
+.JoinGame-error { 
+  color: #e63946;
+}
+
+.JoinGame-input { 
+  width: 100%;
+}
+
+.JoinGame-input.-code { 
+  text-transform: uppercase;
+}
+
+.JoinGame-button { 
+
 }
