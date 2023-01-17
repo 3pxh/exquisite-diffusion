@@ -48,7 +48,6 @@ type Vote = {
 
 type GameState = {
   roomState: State,
-  // setRoomState: boolean, // annoying -- the clients might be "waiting" and we need to know to overwrite.
   playerState: State,
   history: Message[],
   players: Player[],
@@ -62,7 +61,6 @@ type GameState = {
 function initState(): GameState {
   return {
     roomState: State.Lobby,
-    // setRoomState: false,
     playerState: State.Lobby,
     history: [],
     players: [],

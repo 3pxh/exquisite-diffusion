@@ -12,12 +12,12 @@ const PG: Component<Room> = (props) => {
     roomId: props.roomId,
     userId: props.userId,
     isHost: props.isHost,
+    shortcode: props.shortcode,
   });
 
 	return (
     <>
-      <h3>
-      Game: 
+      <h3>Room code: {props.shortcode}</h3>
       player state: {engine.gameState.playerState}
       <Switch fallback={"Unrecognized Game State"}>
         <Match when={engine.gameState.playerState === State.Lobby}>
@@ -69,7 +69,11 @@ const PG: Component<Room> = (props) => {
       <For each={engine.gameState.history}>{(c, i) => {
         return <p>{JSON.stringify(c)}</p>
       }}</For>
-      </h3>
+
+      <For each={engine.players}>{(p, i) => {
+        return <p style="color:green;">{JSON.stringify(p)}</p>
+      }}</For>
+      
     </>
 	)
 }

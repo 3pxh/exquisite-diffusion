@@ -2,6 +2,8 @@ import { supabase } from '../../supabaseClient'
 
 import { createStore, produce, SetStoreFunction, unwrap } from "solid-js/store";
 
+import { AbstractPlayer2 } from './types';
+
 // Currently these mutate the game state rather than returning,
 // not sure if there's a more pure way with solid stores.
 // Alternatively we could switch over to a redux store.
@@ -12,6 +14,7 @@ export type Room = {
   roomId: number, // TODO: make this optional so we can create it?
   userId: string,
   isHost: boolean,
+  shortcode: string,
 }
 
 export type GameInstance<GameState> = Room & {
@@ -24,6 +27,8 @@ export class EngineBase<GameState, Message> {
   isHost: boolean
   hostReducers: Reducer<GameState, Message>[]
   clientReducers: Reducer<GameState, GameState>[]
+  players: AbstractPlayer2[]
+  setPlayers: SetStoreFunction<AbstractPlayer2[]>
   gameState: GameState
   setGameState: SetStoreFunction<GameState>
 
@@ -38,6 +43,9 @@ export class EngineBase<GameState, Message> {
     
     this.hostReducers = [];
     this.clientReducers = [];
+    [this.players, this.setPlayers] = createStore([] as AbstractPlayer2[]);
+
+    this.subscribeToParticipants(gameInit.roomId);
 
     if (gameInit.isHost) { 
       // Right now room creation is taken care of by GameSelection.tsx
@@ -55,6 +63,28 @@ export class EngineBase<GameState, Message> {
     if (error) {
       EngineBase.onError({name: "Could not init room", error});
     }
+  }
+
+  subscribeToParticipants(roomId: number) {
+    supabase.channel(`public:participants:room=eq.${roomId}`)
+      .on('postgres_changes', { 
+        event: 'UPDATE', schema: 'public', table: 'participants', filter: `room=eq.${roomId}` 
+      }, data => {
+        console.log("participant update", data.new);
+        const playerIndex = this.players.findIndex(p => p.id === data.new.id);
+        if (playerIndex >= 0) {
+          this.setPlayers(this.players.findIndex(p => p.id === data.new.id), data.new);
+        }
+      }).subscribe();
+    supabase.channel(`public:participants:room=eq.${roomId}`)
+      .on('postgres_changes', { 
+        event: 'INSERT', schema: 'public', table: 'participants', filter: `room=eq.${roomId}` 
+      }, data => {
+        this.setPlayers([...this.players, data.new as AbstractPlayer2]);
+      }).subscribe();
+    supabase.from('participants').select(`*`).eq('room', roomId).then(({ data, error, status }) => {
+      this.setPlayers(data ? [...data] : [])
+    });
   }
 
   subscribeToRoom(roomId: number) {

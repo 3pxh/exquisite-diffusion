@@ -12,6 +12,7 @@ import JoinGame from './JoinGame'
 import GameSelection from './GameSelection'
 import { GameType } from './GameTypes'
 
+// TODO: merge this "Room" concept with the one in games/engines/EngineBase.ts
 interface Room {
   roomId: number,
   game: GameType,
@@ -35,7 +36,7 @@ const RenderGame: Component<{room: Room, userId: string}> = (props) => {
         <PromptGuesser roomId={props.room.roomId} isHost={props.room.isHost} shortcode={props.room.shortcode} gameType={GameType.Gisticle} />
       </Match>
       <Match when={props.room.game === GameType.PG}>
-        <PG roomId={props.room.roomId} isHost={props.room.isHost} userId={props.userId} />
+        <PG roomId={props.room.roomId} isHost={props.room.isHost} userId={props.userId} shortcode={props.room.shortcode} />
       </Match>
     </Switch>
   )
