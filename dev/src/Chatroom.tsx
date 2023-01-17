@@ -31,6 +31,19 @@ const Chatroom: Component<{roomId: number}> = (props) => {
   const [uuidToPlayerIndex, setUuidToPlayerIndex] = createSignal<{ [key: string]: number }>({})
   const [isOpen, setIsOpen] = createSignal<boolean>(true)
 
+  const updateUuidTable = async payload => {
+      console.log("Updating UUID table....")
+      const participants = await supabase.from('participants').select(`user`).eq('room', props.roomId)
+      console.log("Fetched participants.")
+
+      const new_uuid_to_player_index : { [key: string]: int} = {};
+      for (var i = 0; i < participants.data.length; i++) {
+          console.log(`Player ${i} is ${participants.data[i].user}`)
+          new_uuid_to_player_index[participants.data[i].user] = i;
+      }
+      setUuidToPlayerIndex(new_uuid_to_player_index);
+  };
+
   createEffect(async () => {
     const el = document.getElementById("Chatroom-Messages");
     if (el) { el.scrollTop = el.scrollHeight; }
@@ -40,8 +53,18 @@ const Chatroom: Component<{roomId: number}> = (props) => {
       .on('postgres_changes', { 
         event: 'INSERT', schema: 'public', table: 'chats', filter: `room_id=eq.${props.roomId}` 
       }, payload => {
+
+        // Note: this is a hack.  The subscription below to the participants
+        // table isn't working for some reason.  So until that works, we're
+        // updating our player table whenever an unfamiliar participant says
+        // something.
+        if (!uuidToPlayerIndex().hasOwnProperty(payload.new.message.player.uuid)) {
+            updateUuidTable();
+        }
+
         const el = document.getElementById("Chatroom-Messages");
         const wasScrolledDown = true;//el ? el.scrollTop + el.clientHeight >= el.scrollHeight : false;
+        console.log(`Recieved ${payload.new.message.text}`)
         setMessages(messages().concat({
             text: payload.new.message.text,
             player: payload.new.message.player.handle,
@@ -50,28 +73,15 @@ const Chatroom: Component<{roomId: number}> = (props) => {
         if (el && wasScrolledDown) { // Not closed.
           el.scrollTop = el.scrollHeight;
         }
+
       }).subscribe();
 
-    const updateUuidTable = async payload => {
-        console.log(props.roomId)
-        const participants = await supabase.from('participants').select(`user`).eq('room', props.roomId)
-        console.log(typeof participants);
-
-
-        const new_uuid_to_player_index : { [key: string]: int} = {};
-        for (var i = 0; i < participants.data.length; i++) {
-            console.log(`Player ${i} is ${participants.data[i].user}`)
-            new_uuid_to_player_index[participants.data[i].user] = i;
-        }
-        setUuidToPlayerIndex(new_uuid_to_player_index);
-
-    };
     updateUuidTable();
 
     supabase
-      .channel(`public:participants:room_id=eq.${props.roomID}`)
+      .channel(`public:participants:room=eq.${props.roomId}`)
       .on('postgress_changes', {
-        event: 'INSERT', schema: 'public', table: 'chats', filter: `room_id=eq.${props.roomId}` 
+        event: 'INSERT', schema: 'public', table: 'participants', filter: `room=eq.${props.roomId}` 
         // TODO: we also want this for delete.
         // Also, this solution is imperfect because if a player gets deleted the colors of subsequent players
         // rotate back.
@@ -106,8 +116,10 @@ const Chatroom: Component<{roomId: number}> = (props) => {
         <div id="Chatroom-Messages">
           <For each={messages()}>{(m, i) =>
             <p>
-              <strong style={getHtmlPlayerStyle(uuidToPlayerIndex()[m.uuid]) ?? -1} > {m.player}:</strong>
-              {m.text} -- {m.uuid}
+              <strong style={getHtmlPlayerStyle(uuidToPlayerIndex()[m.uuid] ?? -1)} >
+                {m.player}:
+              </strong>
+              {m.text}
             </p>
           }</For>
         </div> 
