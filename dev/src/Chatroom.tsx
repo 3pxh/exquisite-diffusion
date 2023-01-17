@@ -5,12 +5,30 @@ import { useAuth } from "./AuthProvider";
 interface Message {
   player: string,
   text: string,
+  uuid: string,
+}
+
+const HTML_PLAYER_COLORS = [
+    "#ff0000", // red
+    "#0000ff", // blue
+    "#00ff00", // green
+    "#ff7000", // orange (that's right!)
+    "#ffff70", // yellow
+    "#ff00ff", // purple
+]
+
+const getHtmlPlayerStyle = index => {
+    if (index == -1) {
+        return "color:#ffffff" // Use white for unknown player/error
+    }
+    return "color:" + HTML_PLAYER_COLORS[index % HTML_PLAYER_COLORS.length];
 }
 
 const Chatroom: Component<{roomId: number}> = (props) => {
   const { session, playerHandle } = useAuth();
 
   const [messages, setMessages] = createSignal<Message[]>([])
+  const [uuidToPlayerIndex, setUuidToPlayerIndex] = createSignal<{ [key: string]: number }>({})
   const [isOpen, setIsOpen] = createSignal<boolean>(true)
 
   createEffect(async () => {
@@ -24,11 +42,40 @@ const Chatroom: Component<{roomId: number}> = (props) => {
       }, payload => {
         const el = document.getElementById("Chatroom-Messages");
         const wasScrolledDown = true;//el ? el.scrollTop + el.clientHeight >= el.scrollHeight : false;
-        setMessages(messages().concat({text: payload.new.message.text, player: payload.new.message.player.handle}));
+        setMessages(messages().concat({
+            text: payload.new.message.text,
+            player: payload.new.message.player.handle,
+            uuid: payload.new.message.player.uuid,
+        }));
         if (el && wasScrolledDown) { // Not closed.
           el.scrollTop = el.scrollHeight;
         }
       }).subscribe();
+
+    const updateUuidTable = async payload => {
+        console.log(props.roomId)
+        const participants = await supabase.from('participants').select(`user`).eq('room', props.roomId)
+        console.log(typeof participants);
+
+
+        const new_uuid_to_player_index : { [key: string]: int} = {};
+        for (var i = 0; i < participants.data.length; i++) {
+            console.log(`Player ${i} is ${participants.data[i].user}`)
+            new_uuid_to_player_index[participants.data[i].user] = i;
+        }
+        setUuidToPlayerIndex(new_uuid_to_player_index);
+
+    };
+    updateUuidTable();
+
+    supabase
+      .channel(`public:participants:room_id=eq.${props.roomID}`)
+      .on('postgress_changes', {
+        event: 'INSERT', schema: 'public', table: 'chats', filter: `room_id=eq.${props.roomId}` 
+        // TODO: we also want this for delete.
+        // Also, this solution is imperfect because if a player gets deleted the colors of subsequent players
+        // rotate back.
+      }, updateUuidTable).subscribe();
   })
 
   const sendMessage = async () => {
@@ -58,7 +105,10 @@ const Chatroom: Component<{roomId: number}> = (props) => {
       {isOpen() ? <>
         <div id="Chatroom-Messages">
           <For each={messages()}>{(m, i) =>
-              <p><strong>{m.player}:</strong> {m.text}</p>
+            <p>
+              <strong style={getHtmlPlayerStyle(uuidToPlayerIndex()[m.uuid]) ?? -1} > {m.player}:</strong>
+              {m.text} -- {m.uuid}
+            </p>
           }</For>
         </div> 
         <div id="Chatroom-Input">
