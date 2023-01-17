@@ -50,12 +50,16 @@ const Chatroom: Component<{roomId: number}> = (props) => {
       }).subscribe();
 
     const updateUuidTable = async payload => {
-        const participants = await supabase.from('participants').select(`user`).eq('id', props.roomId).data;
+        console.log(props.roomId)
+        const participants = await supabase.from('participants').select(`user`).eq('room', props.roomId)
+        console.log(typeof participants);
+
+        //participants.keys().forEach(x => console.log(x))
         console.log(`Got participants ${participants}`)
         const new_uuid_to_player_index : { [key: string]: int} = {};
         for (var i = 0; i < participants.length; i++) {
-            console.log(`Player ${i} is ${participants[i].user}`)
-            new_uuid_to_player_index[participants[i].user] = i;
+            console.log(`Player ${i} is ${participants.data[i].user}`)
+            new_uuid_to_player_index[participants.data[i].user] = i;
         }
         setUuidToPlayerIndex(new_uuid_to_player_index);
     };
