@@ -49,13 +49,13 @@ const JoinGame: Component<{chooseGame: (g: GameType, roomId: number, shortcode: 
 		<form class="JoinGame">
       <Switch>
         <Match when={state() === JoinState.ENTERING_CODE}>
-          <h2>
+          <h2 class="JoinGame-headline">
             Join or Re-join a game
           </h2>
           
           <div class="JoinGame-item">
             <label class="JoinGame-label" for="code">
-              Room code:
+              Room code
             </label>
 
             <input
@@ -70,7 +70,7 @@ const JoinGame: Component<{chooseGame: (g: GameType, roomId: number, shortcode: 
 
           <div class="JoinGame-item">
             <label class="JoinGame-label" for="name">
-              Name:
+              Name
             </label>
             
             <input

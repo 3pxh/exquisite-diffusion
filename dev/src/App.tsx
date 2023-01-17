@@ -57,30 +57,36 @@ const App: Component = () => {
 	return (
     <div class="App">
       <aside class="Notice">
-        (DXT test??)
+        ⚠️ (DXT test??)
       </aside>
-      
-      <div class="Auth _container">
-        <Switch>
-          <Match when={session() === null}>
-            <AuthSelection />
-          </Match>
-          <Match when={room() !== null}>
-            <Chatroom roomId={room()!.roomId} />
-            <RenderGame room={room()!} userId={session()?.user.id!} />
-          </Match>
-          <Match when={authState() === AuthType.ANON}>
-            <p>You are logged in anonymously. Join a room below!</p>
+
+      <Switch>
+        <Match when={session() === null}>
+          <AuthSelection />
+        </Match>
+
+        <Match when={room() !== null}>
+          <Chatroom roomId={room()!.roomId} />
+          <RenderGame room={room()!} userId={session()?.user.id!} />
+        </Match>
+
+        <Match when={authState() === AuthType.ANON}>
+          <div class="Auth _container">
+            <header class="Auth-header">
+              <p>You are logged in anonymously.</p>
+              <p><strong>Join a room below!</strong></p>
+            </header>
             <JoinGame chooseGame={chooseGame} />
-          </Match>
-          <Match when={authState() === AuthType.EMAIL}>
-            <p>Logged in as {session()?.user.email}</p>
-            <GameSelection chooseGame={chooseGame} />
-            <h2>--- or ---</h2>
-            <JoinGame chooseGame={chooseGame} />
-          </Match>
-        </Switch>
-      </div>
+          </div>
+        </Match>
+
+        <Match when={authState() === AuthType.EMAIL}>
+          <p>Logged in as {session()?.user.email}</p>
+          <GameSelection chooseGame={chooseGame} />
+          <h2>--- or ---</h2>
+          <JoinGame chooseGame={chooseGame} />
+        </Match>
+      </Switch>
     </div>
 	)
 }
