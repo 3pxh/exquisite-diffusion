@@ -75,7 +75,6 @@ const PG: Component<Room> = (props) => {
               }
 
               <Show when={engine.isHost}>
-                <input onchange={(e) => { setInputVal(e.currentTarget.value) }} />
                 <button onclick={() => engine.startGame(inputVal())}>Start</button>
               </Show>
             </div>

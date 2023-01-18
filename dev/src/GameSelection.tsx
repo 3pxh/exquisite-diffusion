@@ -1,13 +1,23 @@
-import { Component, createSignal } from 'solid-js'
+import { Component, createSignal, For } from 'solid-js'
 import { supabase } from './supabaseClient'
 
 import { GameType } from './GameTypes'
 import { useAuth } from './AuthProvider';
 
-
 const GameSelection: Component<{chooseGame: (g: GameType, roomId: number, shortcode: string, isHost: boolean) => void}> = (props) => {
-  const { session } = useAuth();
-  const [isCreatingRoom, setIsCreatingRoom] = createSignal<boolean>(false)
+  const { session, setPlayerHandle } = useAuth();
+  const [isCreatingRoom, setIsCreatingRoom] = createSignal<boolean>(false);
+  const [gameType, setGameType] = createSignal<GameType>(GameType.PG);
+  const [hostName, setHostName] = createSignal<string>('');
+
+  const setNameAndChoose = async () => {
+    if (hostName() !== '') {
+      setPlayerHandle(hostName());
+    }
+    // TODO: host is not a player if they don't choose a name.
+    // Perhaps the games should interpret this based on useAuth()'s playerHandle()
+    createRoom(gameType());
+  }
 
   const createRoom = async (game: GameType) => {
     setIsCreatingRoom(true);
@@ -42,32 +52,34 @@ const GameSelection: Component<{chooseGame: (g: GameType, roomId: number, shortc
     }
   }
 
+  const games = [
+    {type: GameType.NeoXPromptGuess, title: "False Starts", description: "How to begin the story?"},
+    {type: GameType.SDPromptGuess, title: "Farsketched", description: "Imaaaagination!!"},
+    {type: GameType.Gisticle, title: "Gisticle", description: "Listicles, the game."},
+    {type: GameType.Hadron64, title: "Hadron 64", description: "Race to match patterns"},
+    {type: GameType.PG, title: "PG", description: "Testing new engine"}
+  ]
+
 	return (
 		<div class="GameSelection">
       {isCreatingRoom() ? 
       "Creating room..." :
       <>
       <h2>Create a game:</h2>
-      <button onclick={() => {createRoom(GameType.NeoXPromptGuess)}}>
-        <h3>False Starts</h3>
-        <p>Players seed a text generator, and try to fake out others based on the output texts.</p>
-      </button>
-      <button onclick={() => {createRoom(GameType.SDPromptGuess)}}>
-        <h3>Farsketched</h3>
-        <p>Players seed an image generator, and try to fake out others based on the output images.</p>
-      </button>
-      <button onclick={() => {createRoom(GameType.Hadron64)}}>
-        <h3>Hadron 64</h3>
-        <p>Race to match patterns</p>
-      </button>
-      <button onclick={() => {createRoom(GameType.Gisticle)}}>
-        <h3>Gisticle</h3>
-        <p>Make up silly lists and try to fool one another</p>
-      </button>
-      <button onclick={() => {createRoom(GameType.PG)}}>
-        <h3>PG</h3>
-        <p>Testing new engine</p>
-      </button>
+      <For each={games}>{(g) => {
+        return (<>
+        <button onclick={() => {setGameType(g.type)}} style={g.type === gameType() ? "border: 1px solid #0F0;" : ""}>
+          <h3>{g.title}</h3>
+          <p>{g.description}</p>
+        </button>
+        </>)
+      }}</For>
+      <div>
+        <input placeholder='host_name' onchange={(e) => { setHostName(e.currentTarget.value) }} />
+        <button onclick={() => {setNameAndChoose()}}>
+          <h2>Start Game</h2>
+        </button>
+      </div>
       </>}
 		</div>
 	)
