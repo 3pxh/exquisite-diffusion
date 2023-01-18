@@ -30,11 +30,11 @@ serve(async (req) => {
     console.log('request', JSON.stringify(r))
     let responseData = {};
     if (r.generationType === "image") {
-      responseData = serveImage(supabaseClient, r);
+      responseData = await serveImage(supabaseClient, r);
     } else if (r.generationType === "text") {
-      responseData = serveText(supabaseClient, r);
+      responseData = await serveText(supabaseClient, r);
     } else if (r.generationType === "list") {
-      responseData = serveList(supabaseClient, r);
+      responseData = await serveList(supabaseClient, r);
     }
 
     // TODO: Note the usage on the room owner's credit?
@@ -143,13 +143,13 @@ async function serveImage(supabaseClient:any, req:any) {
         generationType: "image",
         player: req.player,
         prompt: req.prompt,
-        url: genData.url.publicUrl,
+        url: genData.url!.publicUrl,
         seed: 0, // In case we want to get/save that from SD
         // This is temporary while migrating to the new engine. TODO: delete the entries above.
         generation: {
           player: req.player,
           prompt: req.prompt,
-          url: genData.url.publicUrl,
+          url: genData.url!.publicUrl,
           generationType: "image",
         }
       }
@@ -160,8 +160,8 @@ async function serveImage(supabaseClient:any, req:any) {
   }
 }
 
-async function generateImage(supabaseClient: any, prompt: string) {
-  console.log("image prompt:", prompt)
+async function generateImage(supabaseClient: any, prompt: string, tryCount = 0): Promise<{error: any, url?: any}> {
+  const MAX_TRIES = 2;
   const engineId = 'stable-diffusion-512-v2-0';
   const apiHost = 'https://api.stability.ai';
   const url = `${apiHost}/v1alpha/generation/${engineId}/text-to-image`;
@@ -194,6 +194,19 @@ async function generateImage(supabaseClient: any, prompt: string) {
       })
     }
   );
+
+  if (response.headers.get("goa-error") === "invalid_prompts") {
+    return {error: "Your prompt was not valid and may have contained filtered words."}
+  } else if (response.headers.get("goa-error")) {
+    return {error: `goa-error: ${response.headers.get("goa-error")}`}
+  } else if (tryCount < MAX_TRIES && response.headers.get("finish-reason") !== "SUCCESS") {
+    return generateImage(supabaseClient, prompt, tryCount + 1);
+  } else if (tryCount === MAX_TRIES && response.headers.get("finish-reason") !== "SUCCESS") {
+    return {error: `Tried ${tryCount} times but response is ${response.headers.get("Finish-Reason")}`}
+  }
+
+  // In case we wanted to save it, here it is.
+  const seed = response.headers.get("seed");
 
   if (!response.ok) {
     const rjson = await response.json();

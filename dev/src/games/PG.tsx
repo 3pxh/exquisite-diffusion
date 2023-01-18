@@ -131,6 +131,9 @@ const PG: Component<Room & {engine: PromptGuessGameEngine}> = (props) => {
           }}</For>
         </div>
       </Show>
+
+      <p style="color:red;">{props.engine.error()}</p>
+      
     </>
 	)
 }

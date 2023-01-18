@@ -193,6 +193,7 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
   }
 
   setPlayerState(s: State) {
+    this.setError(''); // This makes a lot of assumptions about control flow
     if (this.player().state !== s) {
       super.updatePlayer({ state: s });
     }
@@ -233,8 +234,12 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
     const { data, error } = await this.generateApi(prompt);
     if (data.error || error) {
       const e = data.error || error;
-      EngineBase.onError({name: "Error generating prompt", prompt, e});
       this.setPlayerState(State.WritingPrompts);
+      this.onError({
+        name: "Error generating prompt", 
+        display: e,
+        error: {prompt, e: e}
+      });
     }
   }
 
