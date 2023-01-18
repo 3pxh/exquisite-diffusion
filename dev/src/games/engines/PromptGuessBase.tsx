@@ -1,3 +1,4 @@
+import { Switch, Match } from 'solid-js'
 import { supabase } from '../../supabaseClient'
 import { EngineBase, Room } from './EngineBase'
 import { AbstractPlayerBase, Score } from './types';
@@ -24,7 +25,7 @@ type Generation = {
   generationType: "list" | "image" | "text",
   prompt: string,
   text?: string,
-  image?: string,
+  url?: string,
   gisticlePrefix?: string,
 }
 
@@ -78,6 +79,12 @@ function initState(): GameState {
   }
 }
 
+const shuffle = <T,>(A: T[]) => {
+  return A.map(value => ({ value, sort: Math.random() }))
+          .sort((a, b) => a.sort - b.sort)
+          .map(({ value }) => value);
+}
+
 export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player> {
   constructor(init: Room) {
     super({...init, initState: initState()});
@@ -95,6 +102,7 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
       if (m.type === "Generation") {
         gs.generations = [...gs.generations, m.generation!];
         if (gs.generations.length === this.players().length) {
+          gs.generations = shuffle([...gs.generations]);
           this.setHostState(State.CreatingLies);
         }
       } else if (m.type === "CaptionResponse") {
@@ -103,6 +111,10 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
           caption: m.caption!
         }];
         if (gs.captions.length === this.players().length - 1) {
+          gs.captions = shuffle([...gs.captions, {
+            player: gs.generations[0].player.id,
+            caption: gs.generations[0].prompt,
+          }]);
           this.setHostState(State.Voting);
         }
       } else if (m.type === "CaptionVote") {
@@ -138,6 +150,21 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
     super.updatePlayer({
       state: State.Lobby,
     });
+  }
+
+  renderGeneration(g: Generation) {
+    return (<Switch>
+      <Match when={g.generationType === "image"}>
+        <img src={g.url!} />
+      </Match>
+      <Match when={g.generationType === "text"}>
+        <h3 style="white-space: pre-wrap;">{g.text}</h3>
+      </Match>
+      <Match when={g.generationType === "list"}>
+        {/* Include the prefix here? Or no. */}
+        <h3 style="white-space: pre-wrap;">{g.text}</h3>
+      </Match>
+    </Switch>)
   }
 
   setHostState(s: State, mutation?: (gs: GameState) => void) {

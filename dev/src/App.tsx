@@ -6,6 +6,7 @@ import Chatroom from './Chatroom';
 
 import PromptGuesser from './games/PromptGuesser'
 import Hadron64 from './games/Hadron64';
+import { PromptGuessGameEngine } from './games/engines/PromptGuessBase'
 import PG from './games/PG'
 
 import JoinGame from './JoinGame'
@@ -20,7 +21,7 @@ interface Room {
   isHost: boolean,
 }
 
-const RenderGame: Component<{room: Room, userId: string}> = (props) => {
+const RenderGame: Component<{room: Room, userId: string, engine: PromptGuessGameEngine | null}> = (props) => {
   return (
     <Switch>
       <Match when={props.room.game === GameType.NeoXPromptGuess}>
@@ -36,7 +37,8 @@ const RenderGame: Component<{room: Room, userId: string}> = (props) => {
         <PromptGuesser roomId={props.room.roomId} isHost={props.room.isHost} shortcode={props.room.shortcode} gameType={GameType.Gisticle} />
       </Match>
       <Match when={props.room.game === GameType.PG}>
-        <PG roomId={props.room.roomId} isHost={props.room.isHost} userId={props.userId} shortcode={props.room.shortcode} />
+        <PG roomId={props.room.roomId} isHost={props.room.isHost} userId={props.userId} shortcode={props.room.shortcode} 
+            engine={props.engine!}/>
       </Match>
     </Switch>
   )
@@ -44,8 +46,18 @@ const RenderGame: Component<{room: Room, userId: string}> = (props) => {
 
 const App: Component = () => {
   const { session, authState } = useAuth();
-  const [room, setRoom] = createSignal<Room | null>(null)
+  const [room, setRoom] = createSignal<Room | null>(null);
+  const [engine, setEngine] = createSignal<PromptGuessGameEngine | null>(null);
+
   const chooseGame = (g: GameType, roomId: number, shortcode: string, isHost?: boolean) => {
+    if (g === GameType.PG) {
+      setEngine(new PromptGuessGameEngine({
+        roomId: roomId,
+        userId: session()?.user.id!,
+        isHost: isHost ?? false,
+        shortcode: shortcode,
+      }))
+    }
     setRoom({
       game: g,
       roomId: roomId,
@@ -67,7 +79,7 @@ const App: Component = () => {
 
         <Match when={room() !== null}>
           <Chatroom roomId={room()!.roomId} />
-          <RenderGame room={room()!} userId={session()?.user.id!} />
+          <RenderGame room={room()!} userId={session()?.user.id!} engine={engine()} />
         </Match>
 
         <Match when={authState() === AuthType.ANON}>
