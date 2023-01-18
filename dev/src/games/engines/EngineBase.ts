@@ -61,7 +61,6 @@ export class EngineBase<GameState, Message, Player extends AbstractPlayer> {
   }
 
   updatePlayer(p: Partial<Player>) {
-    console.log("updating player", p, this.player())
     const up = Object.assign({...this.player()}, p)
     this.setPlayer(up as any);
     supabase.from('participants').update({
@@ -71,7 +70,6 @@ export class EngineBase<GameState, Message, Player extends AbstractPlayer> {
     }).eq('user', this.userId).eq('room', this.roomId).then(({ data, error, status }) => {
       if (error) { EngineBase.onError({name: "Could not update participant", error}); }
     });
-    console.log("set players", this.players().map(p => up.id === p.id ? up : p))
     // Aggressively update ourselves in the player list.
     this.setPlayers(this.players().map(p => up.id === p.id ? up : p));
   }

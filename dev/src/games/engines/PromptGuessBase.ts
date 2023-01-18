@@ -1,9 +1,8 @@
-import { createEffect } from 'solid-js';
 import { supabase } from '../../supabaseClient'
 import { EngineBase, Room } from './EngineBase'
 import { AbstractPlayerBase, Score } from './types';
 
-type Player = AbstractPlayerBase<{
+export type Player = AbstractPlayerBase<{
   handle?: string,
   state?: State,
   avatar?: string,

@@ -3,6 +3,7 @@ import { useAuth } from "../AuthProvider";
 import { PromptGuessGameEngine, State } from './engines/PromptGuessBase'
 import { Room } from './engines/EngineBase'
 import Scoreboard from './components/Scoreboard'
+import AvatarPicker from './components/AvatarPicker';
 
 const PG: Component<Room> = (props) => {
   const { session, playerHandle, setPlayerHandle } = useAuth();
@@ -36,7 +37,7 @@ const PG: Component<Room> = (props) => {
 
           <p class="GameHeader-player">
             <span>Hey, </span>
-            <img class="GameHeader-avatar" src="/src/assets/avatars/1.png" alt={engine.player().handle} />
+            <img class="GameHeader-avatar" src={engine.player().avatar ?? ''} alt={engine.player().handle} />
             <span>{engine.player().handle}!</span>
           </p>
 
@@ -56,12 +57,16 @@ const PG: Component<Room> = (props) => {
                 Game Lobby
               </p>
 
+              <AvatarPicker players={engine.players()} setAvatarUrl={(url) => {
+                engine.updatePlayer({ avatar: url })
+              }} />
+              
               {engine.players && engine.players().length > 0 && 
                 <ul class="GameLobby-players">
                   <For each={engine.players()}>{(p, i) => {
                     return (
                       <li class="GameLobby-player">
-                        <img class="GameLobby-avatar" src="/src/assets/avatars/1.png" alt={p.handle ?? "New player"} />
+                        <img class="GameLobby-avatar" src={p.avatar ?? ''} alt={p.handle ?? "New player"} />
                         {p.handle ?? "New player"}
                       </li>
                     )
