@@ -150,6 +150,7 @@ async function serveImage(supabaseClient:any, req:any) {
           player: req.player,
           prompt: req.prompt,
           url: genData.url.publicUrl,
+          generationType: "image",
         }
       }
     });

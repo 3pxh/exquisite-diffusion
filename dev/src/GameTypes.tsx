@@ -4,9 +4,10 @@ export enum GameType {
   Hadron64,
   Gisticle,
   PG,
+  PGImage,
 }
 
-export type GameTypeString = "NeoXPromptGuess" | "SDPromptGuess" | "Hadron64" | "Gisticle" | "PG"
+export type GameTypeString = "NeoXPromptGuess" | "SDPromptGuess" | "Hadron64" | "Gisticle" | "PG" | "PGImage"
 
 export const GameTypeMap = {
   "NeoXPromptGuess": GameType.NeoXPromptGuess,
@@ -14,6 +15,7 @@ export const GameTypeMap = {
   "Hadron64": GameType.Hadron64,
   "Gisticle": GameType.Gisticle,
   "PG": GameType.PG,
+  "PGImage": GameType.PGImage,
 }
 
 export interface Room {

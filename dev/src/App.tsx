@@ -6,7 +6,7 @@ import Chatroom from './Chatroom';
 
 import PromptGuesser from './games/PromptGuesser'
 import Hadron64 from './games/Hadron64';
-import { PromptGuessGameEngine } from './games/engines/PromptGuessBase'
+import { PromptGuessGameEngine, PGImageEngine } from './games/engines/PromptGuessBase'
 import PG from './games/PG'
 
 import JoinGame from './JoinGame'
@@ -36,7 +36,8 @@ const RenderGame: Component<{room: Room, userId: string, engine: PromptGuessGame
       <Match when={props.room.game === GameType.Gisticle}>
         <PromptGuesser roomId={props.room.roomId} isHost={props.room.isHost} shortcode={props.room.shortcode} gameType={GameType.Gisticle} />
       </Match>
-      <Match when={props.room.game === GameType.PG}>
+      <Match when={props.room.game === GameType.PG || 
+                   props.room.game === GameType.PGImage}>
         <PG roomId={props.room.roomId} isHost={props.room.isHost} userId={props.userId} shortcode={props.room.shortcode} 
             engine={props.engine!}/>
       </Match>
@@ -50,13 +51,18 @@ const App: Component = () => {
   const [engine, setEngine] = createSignal<PromptGuessGameEngine | null>(null);
 
   const chooseGame = (g: GameType, roomId: number, shortcode: string, isHost?: boolean) => {
-    if (g === GameType.PG) {
-      setEngine(new PromptGuessGameEngine({
+    if (g === GameType.PG || g === GameType.PGImage) {
+      const engines = {
+        [GameType.PG]: PromptGuessGameEngine,
+        [GameType.PGImage]: PGImageEngine,
+      }
+      const ENGINE = engines[g];
+      setEngine(new ENGINE({
         roomId: roomId,
         userId: session()?.user.id!,
         isHost: isHost ?? false,
         shortcode: shortcode,
-      }))
+      }));
     }
     setRoom({
       game: g,

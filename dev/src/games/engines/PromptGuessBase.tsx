@@ -1,4 +1,4 @@
-import { Switch, Match } from 'solid-js'
+import { Switch, Match, JSX } from 'solid-js'
 import { supabase } from '../../supabaseClient'
 import { EngineBase, Room } from './EngineBase'
 import { AbstractPlayerBase, Score } from './types';
@@ -152,19 +152,8 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
     });
   }
 
-  renderGeneration(g: Generation) {
-    return (<Switch>
-      <Match when={g.generationType === "image"}>
-        <img src={g.url!} />
-      </Match>
-      <Match when={g.generationType === "text"}>
-        <h3 style="white-space: pre-wrap;">{g.text}</h3>
-      </Match>
-      <Match when={g.generationType === "list"}>
-        {/* Include the prefix here? Or no. */}
-        <h3 style="white-space: pre-wrap;">{g.text}</h3>
-      </Match>
-    </Switch>)
+  renderGeneration(g: Generation): JSX.Element {
+    return <h3 style="white-space: pre-wrap;">{g.text}</h3>;
   }
 
   setHostState(s: State, mutation?: (gs: GameState) => void) {
@@ -223,8 +212,7 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
     });
   }
 
-  async generate(prompt: string) {
-    this.setPlayerState(State.Waiting);
+  async generateApi(prompt: string) {
     const { data, error } = await supabase.functions.invoke("generate", {
       body: JSON.stringify({
         room: this.roomId,
@@ -233,6 +221,12 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
         generationType: "text",
       })
     });
+    return {data, error}
+  }
+
+  async generate(prompt: string) {
+    this.setPlayerState(State.Waiting);
+    const { data, error } = await this.generateApi(prompt);
     if (data.error || error) {
       const e = data.error || error;
       EngineBase.onError({name: "Error generating prompt", prompt, e});
@@ -260,4 +254,26 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
     });
   }
 
+}
+
+export class PGImageEngine extends PromptGuessGameEngine {
+  constructor(init: Room) {
+    super({...init});
+  }
+
+  renderGeneration(g: Generation) {
+    return <img src={g.url!} />
+  }
+
+  async generateApi(prompt: string) {
+    const { data, error } = await supabase.functions.invoke("generate", {
+      body: JSON.stringify({
+        room: this.roomId,
+        player: this.player(),
+        prompt: prompt,
+        generationType: "image",
+      })
+    });
+    return {data, error}
+  }
 }
