@@ -10,7 +10,7 @@ interface Message {
 
 const HTML_PLAYER_COLORS = [
     "#ff0000", // red
-    "#0000ff", // blue
+    "#7777ff", // blue (a bit lighter to make it easy to see against black)
     "#00ff00", // green
     "#ff7000", // orange (that's right!)
     "#ffff70", // yellow
@@ -33,7 +33,7 @@ const Chatroom: Component<{roomId: number}> = (props) => {
 
   const updateUuidTable = async payload => {
       console.log("Updating UUID table....")
-      const participants = await supabase.from('participants').select(`user`).eq('room', props.roomId)
+      const participants = await supabase.from('participants').select(`user`).eq('room', props.roomId).order('id')
       console.log("Fetched participants.")
 
       const new_uuid_to_player_index : { [key: string]: int} = {};
@@ -50,8 +50,8 @@ const Chatroom: Component<{roomId: number}> = (props) => {
     console.log("subscribing to messages", props.roomId);
     supabase
       .channel(`public:chats:room_id=eq.${props.roomId}`)
-      .on('postgres_changes', { 
-        event: 'INSERT', schema: 'public', table: 'chats', filter: `room_id=eq.${props.roomId}` 
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'chats', filter: `room_id=eq.${props.roomId}`
       }, payload => {
 
         // Note: this is a hack.  The subscription below to the participants
@@ -78,14 +78,18 @@ const Chatroom: Component<{roomId: number}> = (props) => {
 
     updateUuidTable();
 
+    // TODO: this subscription doesn't seem to do anything.
+    /*
     supabase
       .channel(`public:participants:room=eq.${props.roomId}`)
       .on('postgress_changes', {
-        event: 'INSERT', schema: 'public', table: 'participants', filter: `room=eq.${props.roomId}` 
-        // TODO: we also want this for delete.
-        // Also, this solution is imperfect because if a player gets deleted the colors of subsequent players
-        // rotate back.
-      }, updateUuidTable).subscribe();
+          event: 'INSERT', schema: 'public', table: 'participants', filter: `room=eq.${props.roomId}`
+        }, updateUuidTable)
+      .on('postgress_changes', {
+          event: 'UPDATE', schema: 'public', table: 'participants', filter: `room=eq.${props.roomId}`
+        }, updateUuidTable)
+      .subscribe();
+    */
   })
 
   const sendMessage = async () => {
@@ -122,12 +126,14 @@ const Chatroom: Component<{roomId: number}> = (props) => {
               {m.text}
             </p>
           }</For>
-        </div> 
+        </div>
         <div id="Chatroom-Input">
-          <span>{playerHandle()}:</span>
+          <span style={getHtmlPlayerStyle(uuidToPlayerIndex()[session()?.user.id] ?? -1)} >
+            {playerHandle()}
+          </span>
           <input onkeydown={(e) => {e.key === "Enter" ? sendMessage() : "";}} id="Chatroom-newMessage" type="text" placeholder="yo yo yo" />
           <button onclick={sendMessage} >Send (⏎)</button>
-        </div></> 
+        </div></>
         : <></>}
     </div>
   )
