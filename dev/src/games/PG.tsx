@@ -119,16 +119,17 @@ const PG: Component<Room & {engine: PromptGuessGameEngine}> = (props) => {
         </Match>
       </Switch>
 
-      <Show when={playerState() !== State.Lobby}>
-        <p>Done writing:
+      <Show when={playerState() !== State.Lobby && playerState() !== State.Scoring}>
+        <div class="PG-WaitingPlayers">
           <For each={props.engine.players()}>{(p, i) => {
+            const gens = props.engine.gameState.generations;
             return <>
-              <Show when={p.state === State.Waiting}>
-                <img src={p.avatar} width="32" />
-              </Show>
+              <img class={p.state === State.Waiting || (gens.length > 0 && gens[0].player.id === p.id)
+                 ? "PG-WaitingPlayers--Done" : "PG-WaitingPlayers--NotDone"} 
+                   src={p.avatar} width="32" />
             </>
           }}</For>
-        </p>
+        </div>
       </Show>
     </>
 	)

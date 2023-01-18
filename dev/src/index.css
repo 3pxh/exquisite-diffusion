@@ -382,3 +382,17 @@ input {
   margin-left: .4rem;
   width: 1rem;
 }
+
+.PG-WaitingPlayers {
+  display: flex;
+  max-width: 300px;
+}
+.PG-WaitingPlayers img {
+  margin: 5px;
+}
+.PG-WaitingPlayers--Done {
+  opacity: 1;
+}
+.PG-WaitingPlayers--NotDone {
+  opacity: .3;
+}
