@@ -76,11 +76,18 @@ const PG: Component<Room> = (props) => {
             </div>
           </div>
         </Match>
+
         <Match when={playerState() === State.WritingPrompts}>
-          <h2>Make something fun</h2>
-          <input onchange={(e) => { setInputVal(e.currentTarget.value) }} />
-          <button onclick={() => engine.generate(inputVal())}>Make it so!</button>
+          <div class="_container">
+            <h2>Make something fun</h2>
+
+            <form>
+              <input onchange={(e) => { setInputVal(e.currentTarget.value) }} />
+              <button onclick={() => engine.generate(inputVal())}>Make it so!</button>
+            </form>
+          </div>
         </Match>
+
         <Match when={playerState() === State.CreatingLies}>
           <h2>What made this?</h2>
           {JSON.stringify(engine.gameState.generations[0])}
@@ -90,6 +97,7 @@ const PG: Component<Room> = (props) => {
             <button onclick={() => engine.caption(inputVal())}>Make it so!</button>
           </Show>
         </Match>
+
         <Match when={playerState() === State.Voting}>
           Which prompt made it?
           <ol>
@@ -98,26 +106,31 @@ const PG: Component<Room> = (props) => {
             }</For>
           </ol> 
         </Match>
+
         <Match when={playerState() === State.Scoring}>
           <Scoreboard players={engine.players()} scores={engine.gameState.scores} />
           <Show when={props.isHost}>
             <button onclick={() => { engine.continueAfterScoring() }}>Continue</button>
           </Show>
         </Match>
+
         <Match when={playerState() === State.Finished}>
           <h2>Final Scores:</h2>
           <Scoreboard players={engine.players()} scores={engine.gameState.scores} />
         </Match>
+
         <Match when={playerState() === State.Waiting}>
           Waiting 
         </Match>
       </Switch>
 
-      <Show when={playerState() !== State.Lobby}>
-        <For each={engine.players()}>{(p, i) => {
-          return <p>{p.handle} is {p.state === State.Waiting ? 'done' : 'still working'}</p>
-        }}</For>
-      </Show>
+      <div class="_container">
+        <Show when={playerState() !== State.Lobby}>
+          <For each={engine.players()}>{(p, i) => {
+            return <p>{p.handle} is {p.state === State.Waiting ? 'done' : 'still working'}</p>
+          }}</For>
+        </Show>
+      </div>
     </>
 	)
 }
