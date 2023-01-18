@@ -6,11 +6,13 @@ import Chatroom from './Chatroom';
 
 import PromptGuesser from './games/PromptGuesser'
 import Hadron64 from './games/Hadron64';
+import PG from './games/PG'
 
 import JoinGame from './JoinGame'
 import GameSelection from './GameSelection'
 import { GameType } from './GameTypes'
 
+// TODO: merge this "Room" concept with the one in games/engines/EngineBase.ts
 interface Room {
   roomId: number,
   game: GameType,
@@ -18,7 +20,7 @@ interface Room {
   isHost: boolean,
 }
 
-const RenderGame: Component<{room: Room}> = (props) => {
+const RenderGame: Component<{room: Room, userId: string}> = (props) => {
   return (
     <Switch>
       <Match when={props.room.game === GameType.NeoXPromptGuess}>
@@ -32,6 +34,9 @@ const RenderGame: Component<{room: Room}> = (props) => {
       </Match>
       <Match when={props.room.game === GameType.Gisticle}>
         <PromptGuesser roomId={props.room.roomId} isHost={props.room.isHost} shortcode={props.room.shortcode} gameType={GameType.Gisticle} />
+      </Match>
+      <Match when={props.room.game === GameType.PG}>
+        <PG roomId={props.room.roomId} isHost={props.room.isHost} userId={props.userId} shortcode={props.room.shortcode} />
       </Match>
     </Switch>
   )
@@ -51,18 +56,30 @@ const App: Component = () => {
 
 	return (
     <div class="App">
+      <aside class="Notice">
+        ⚠️ (DXT test??)
+      </aside>
+
       <Switch>
         <Match when={session() === null}>
           <AuthSelection />
         </Match>
+
         <Match when={room() !== null}>
           <Chatroom roomId={room()!.roomId} />
-          <RenderGame room={room()!} />
+          <RenderGame room={room()!} userId={session()?.user.id!} />
         </Match>
+
         <Match when={authState() === AuthType.ANON}>
-          <p>You are logged in anonymously. Join a room below!</p>
-          <JoinGame chooseGame={chooseGame} />
+          <div class="Auth _container">
+            <header class="Auth-header">
+              <p>You are logged in anonymously.</p>
+              <p><strong>Join a room below!</strong></p>
+            </header>
+            <JoinGame chooseGame={chooseGame} />
+          </div>
         </Match>
+
         <Match when={authState() === AuthType.EMAIL}>
           <p>Logged in as {session()?.user.email}</p>
           <GameSelection chooseGame={chooseGame} />

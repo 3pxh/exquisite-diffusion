@@ -25,9 +25,18 @@ const GameSelection: Component<{chooseGame: (g: GameType, roomId: number, shortc
       setIsCreatingRoom(false)
       console.log(`Could not create room, status code ${status}. Check console for errors.`, error);
     } else {
-      await supabase.from('participants').insert({
-        user: session()?.user.id,
-        room: data.id,
+      // Somehow this gives infinite recursion on the RLS "Users can see other participants in their rooms"
+      // let { error } = await supabase.from('participants').insert({
+      //   user: session()?.user.id,
+      //   room: data.id,
+      // });
+      // Despite the host having permission to create such a record.
+      // Instead, we will invoke joinroom which has access to write the record.
+      const { error } = await supabase.functions.invoke("joinroom", {
+        body: JSON.stringify({
+          shortcode: shortcode,
+          userId: session()?.user.id
+        })
       });
       props.chooseGame(game, data.id, shortcode, true)
     }
@@ -54,6 +63,10 @@ const GameSelection: Component<{chooseGame: (g: GameType, roomId: number, shortc
       <button onclick={() => {createRoom(GameType.Gisticle)}}>
         <h3>Gisticle</h3>
         <p>Make up silly lists and try to fool one another</p>
+      </button>
+      <button onclick={() => {createRoom(GameType.PG)}}>
+        <h3>PG</h3>
+        <p>Testing new engine</p>
       </button>
       </>}
 		</div>

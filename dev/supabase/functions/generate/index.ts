@@ -27,6 +27,7 @@ serve(async (req) => {
 
   // Run the generation.
   try {
+    console.log('request', JSON.stringify(r))
     let responseData = {};
     if (r.generationType === "image") {
       responseData = serveImage(supabaseClient, r);
@@ -75,7 +76,7 @@ async function serveList(supabaseClient:any, req:any) {
 
   let { data, error, status } = await supabaseClient.from('messages').insert({
     room: req.room,
-    user_id: req.player.uuid,
+    user_id: req.player.uuid || req.player.id,
     data: {
       type: "Generation",
       generationType: "list",
@@ -83,6 +84,14 @@ async function serveList(supabaseClient:any, req:any) {
       gisticlePrefix: req.gisticlePrefix,
       prompt: req.prompt,
       text: completion,
+      // This is temporary while migrating to the new engine. TODO: delete the entries above.
+      generation: {
+        player: req.player,
+        generationType: "list",
+        gisticlePrefix: req.gisticlePrefix,
+        prompt: req.prompt,
+        text: completion,
+      }
     }
   });
 
@@ -103,13 +112,20 @@ async function serveText(supabaseClient:any, req:any) {
 
   let { data, error, status } = await supabaseClient.from('messages').insert({
     room: req.room,
-    user_id: req.player.uuid,
+    user_id: req.player.uuid || req.player.id,
     data: {
       type: "Generation",
       generationType: "text",
       player: req.player,
       prompt: req.prompt,
       text: synthJson.text,
+      // This is temporary while migrating to the new engine. TODO: delete the entries above.
+      generation: {
+        player: req.player,
+        generationType: "text",
+        prompt: req.prompt,
+        text: synthJson.text,
+      }
     }
   });
 
@@ -121,14 +137,20 @@ async function serveImage(supabaseClient:any, req:any) {
   if (!genData.error) {
     let { data, error, status } = await supabaseClient.from('messages').insert({
       room: req.room,
-      user_id: req.player.uuid,
+      user_id: req.player.uuid || req.player.id,
       data: {
         type: "Generation",
         generationType: "image",
         player: req.player,
         prompt: req.prompt,
         url: genData.url.publicUrl,
-        seed: 0 // In case we want to get/save that from SD
+        seed: 0, // In case we want to get/save that from SD
+        // This is temporary while migrating to the new engine. TODO: delete the entries above.
+        generation: {
+          player: req.player,
+          prompt: req.prompt,
+          url: genData.url.publicUrl,
+        }
       }
     });
     return status
