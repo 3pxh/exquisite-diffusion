@@ -58,7 +58,8 @@ const GameSelection: Component<{chooseGame: (g: GameType, roomId: number, shortc
     {type: GameType.Gisticle, title: "Gisticle", description: "Listicles, the game."},
     {type: GameType.Hadron64, title: "Hadron 64", description: "Race to match patterns"},
     {type: GameType.PG, title: "PG", description: "Testing new engine"},
-    {type: GameType.PGImage, title: "New Image Engine", description: "Test test"}
+    {type: GameType.PGImage, title: "New Image Engine", description: "Test test"},
+    {type: GameType.PGGisticle, title: "New Gisticle Engine", description: "GS test"},
   ]
 
 	return (

@@ -72,21 +72,19 @@ const PG: Component<Room & {engine: PromptGuessGameEngine}> = (props) => {
           </div>
         </Match>
         <Match when={playerState() === State.WritingPrompts}>
-          <h2>Make something fun</h2>
+          {props.engine.renderPrompt()}
           <input onchange={(e) => { setInputVal(e.currentTarget.value) }} />
           <button onclick={() => props.engine.generate(inputVal())}>Make it so!</button>
         </Match>
         <Match when={playerState() === State.CreatingLies}>
-          <h2>What made this?</h2>
           {props.engine.renderGeneration(props.engine.gameState.generations[0])}
           <Show when={props.engine.gameState.generations[0].player.id !== props.userId}
             fallback={"You are responsible for this masterpiece. Well done."}>
             <input onchange={(e) => { setInputVal(e.currentTarget.value) }} />
-            <button onclick={() => props.engine.caption(inputVal())}>Make it so!</button>
+            <button onclick={() => props.engine.caption(inputVal())}>Fool others!</button>
           </Show>
         </Match>
         <Match when={playerState() === State.Voting}>
-          Which prompt made it?
           {props.engine.renderGeneration(props.engine.gameState.generations[0])}
           <ol>
             <For each={props.engine.gameState.captions}>{(c, i) =>

@@ -1,4 +1,4 @@
-import { Switch, Match, JSX } from 'solid-js'
+import { createSignal, Accessor, Setter, JSX } from 'solid-js'
 import { supabase } from '../../supabaseClient'
 import { EngineBase, Room } from './EngineBase'
 import { AbstractPlayerBase, Score } from './types';
@@ -152,6 +152,10 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
     });
   }
 
+  renderPrompt(): JSX.Element {
+    return <h2>Make something fun</h2>
+  }
+
   renderGeneration(g: Generation): JSX.Element {
     return <h3 style="white-space: pre-wrap;">{g.text}</h3>;
   }
@@ -272,6 +276,57 @@ export class PGImageEngine extends PromptGuessGameEngine {
         player: this.player(),
         prompt: prompt,
         generationType: "image",
+      })
+    });
+    return {data, error}
+  }
+}
+
+const chooseOne = <T,>(A: T[]) => {
+  return A[Math.floor(Math.random() * A.length)];
+}
+
+export class PGGisticleEngine extends PromptGuessGameEngine {
+  static TEMPLATES = [
+    "List the top 5 best",
+    "List the top 5 reasons you should",
+    "List the top 5 most ridiculous ways to",
+    "List the top 5 most obvious signs",
+  ]
+  prefix: Accessor<string>
+  setPrefix: Setter<string>
+
+  constructor(init: Room) {
+    super({...init});
+    [this.prefix, this.setPrefix] = createSignal<string>(chooseOne(PGGisticleEngine.TEMPLATES))
+  }
+
+  setPlayerState(s: State) {
+    if (this.player().state !== s && s === State.WritingPrompts) {
+      this.setPrefix(chooseOne(PGGisticleEngine.TEMPLATES));
+    }
+    super.setPlayerState(s);
+  }
+
+  renderPrompt(): JSX.Element {
+    return <h2>{this.prefix()}...</h2>
+  }
+
+  renderGeneration(g: Generation) {
+    return <>
+      <h2>{g.gisticlePrefix}...</h2>
+      <h3 style="white-space: pre-wrap;">{g.text}</h3>
+    </>
+  }
+
+  async generateApi(prompt: string) {
+    const { data, error } = await supabase.functions.invoke("generate", {
+      body: JSON.stringify({
+        room: this.roomId,
+        player: this.player(),
+        prompt: prompt,
+        generationType: "list",
+        gisticlePrefix: this.prefix(),
       })
     });
     return {data, error}
