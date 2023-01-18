@@ -56,19 +56,30 @@ const App: Component = () => {
 
 	return (
     <div class="App">
-      (DXT test??)
+      <aside class="Notice">
+        ⚠️ (DXT test??)
+      </aside>
+
       <Switch>
         <Match when={session() === null}>
           <AuthSelection />
         </Match>
+
         <Match when={room() !== null}>
           <Chatroom roomId={room()!.roomId} />
           <RenderGame room={room()!} userId={session()?.user.id!} />
         </Match>
+
         <Match when={authState() === AuthType.ANON}>
-          <p>You are logged in anonymously. Join a room below!</p>
-          <JoinGame chooseGame={chooseGame} />
+          <div class="Auth _container">
+            <header class="Auth-header">
+              <p>You are logged in anonymously.</p>
+              <p><strong>Join a room below!</strong></p>
+            </header>
+            <JoinGame chooseGame={chooseGame} />
+          </div>
         </Match>
+
         <Match when={authState() === AuthType.EMAIL}>
           <p>Logged in as {session()?.user.email}</p>
           <GameSelection chooseGame={chooseGame} />
