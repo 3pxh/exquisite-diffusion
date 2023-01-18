@@ -46,31 +46,63 @@ const JoinGame: Component<{chooseGame: (g: GameType, roomId: number, shortcode: 
   }
 
 	return (
-		<div class="JoinGame">
+		<form class="JoinGame">
       <Switch>
         <Match when={state() === JoinState.ENTERING_CODE}>
-          <h2>Join or Re-join a game</h2>
-          <div>Room code: <input 
-            style="text-transform: uppercase;"
-            placeholder="LMAO"
-            maxlength="4"
-            onChange={(e) => setShortcode(e.currentTarget.value.toUpperCase())}
-          /></div>
-          <div>Name: <input 
-            placeholder="happy_ewok"
-            onChange={(e) => setName(e.currentTarget.value)}
-          /></div>
-          <button onclick={() => joinRoom()}>Join game</button>
+          <h2 class="JoinGame-headline">
+            Join or Re-join a game
+          </h2>
+          
+          <div class="JoinGame-item">
+            <label class="JoinGame-label" for="code">
+              Room code
+            </label>
+
+            <input
+              id="code"
+              name="code"
+              class="JoinGame-input -code"
+              placeholder="LMAO"
+              maxlength="4"
+              onChange={(e) => setShortcode(e.currentTarget.value.toUpperCase())}
+            />
+          </div>
+
+          <div class="JoinGame-item">
+            <label class="JoinGame-label" for="name">
+              Name
+            </label>
+            
+            <input
+              id="name"
+              name="name"
+              class="JoinGame-input"
+              placeholder="happy_ewok"
+              onChange={(e) => setName(e.currentTarget.value)}
+            />
+          </div>
+
+          <button 
+            class="JoinGame-button"
+            onclick={() => joinRoom()}
+          >
+            Join Game
+          </button>
         </Match>
+
         <Match when={state() === JoinState.JOINING}>
           <p>Joining game...</p>
         </Match>
+
         <Match when={state() === JoinState.JOINED}>
           <p>You've joined the game.</p>
         </Match>
       </Switch>
-      <p style="color:red;">{error()}</p>
-		</div>
+
+      <p class="JoinGame-error">
+        {error()}
+      </p>
+		</form>
 	)
 }
 
