@@ -37,7 +37,7 @@ const PG: Component<Room> = (props) => {
 
           <p class="GameHeader-player">
             <span>Hey, </span>
-            <img class="GameHeader-avatar" src="/src/assets/avatars/1.png" alt={engine.player().handle} />
+            <img class="GameHeader-avatar" src={engine.player().avatar ?? ''} alt={engine.player().handle} />
             <span>{engine.player().handle}!</span>
           </p>
 
@@ -66,7 +66,7 @@ const PG: Component<Room> = (props) => {
                   <For each={engine.players()}>{(p, i) => {
                     return (
                       <li class="GameLobby-player">
-                        <img class="GameLobby-avatar" src="/src/assets/avatars/1.png" alt={p.handle ?? "New player"} />
+                        <img class="GameLobby-avatar" src={p.avatar ?? ''} alt={p.handle ?? "New player"} />
                         {p.handle ?? "New player"}
                       </li>
                     )
