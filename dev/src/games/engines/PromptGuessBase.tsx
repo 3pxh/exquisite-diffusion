@@ -86,8 +86,11 @@ const shuffle = <T,>(A: T[]) => {
 }
 
 export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player> {
+  gameName: string
+
   constructor(init: Room) {
     super({...init, initState: initState()});
+    this.gameName = "False Starts";
 
     super.registerClientReducer((oldState: GameState, newState: GameState) => {
       // WARNING: the order of these lines is important. 
@@ -154,6 +157,10 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
 
   renderPrompt(): JSX.Element {
     return <h2>Make something fun</h2>
+  }
+
+  renderGenerationPrompt(g: Generation): JSX.Element {
+    return <></>
   }
 
   renderGeneration(g: Generation): JSX.Element {
@@ -268,6 +275,7 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
 export class PGImageEngine extends PromptGuessGameEngine {
   constructor(init: Room) {
     super({...init});
+    this.gameName = "Farsketched";
   }
 
   renderGeneration(g: Generation) {
@@ -303,6 +311,7 @@ export class PGGisticleEngine extends PromptGuessGameEngine {
 
   constructor(init: Room) {
     super({...init});
+    this.gameName = "Gisticle";
     [this.prefix, this.setPrefix] = createSignal<string>(chooseOne(PGGisticleEngine.TEMPLATES))
   }
 
@@ -317,9 +326,14 @@ export class PGGisticleEngine extends PromptGuessGameEngine {
     return <h2>{this.prefix()}...</h2>
   }
 
+  renderGenerationPrompt(g: Generation) {
+    return <>
+      <h3>{g.gisticlePrefix} ___</h3>
+    </>
+  }
+
   renderGeneration(g: Generation) {
     return <>
-      <h2>{g.gisticlePrefix}...</h2>
       <h3 style="white-space: pre-wrap;">{g.text}</h3>
     </>
   }

@@ -33,7 +33,7 @@ const PG: Component<Room & {engine: PromptGuessGameEngine}> = (props) => {
           </p>
 
           <p class="GameHeader-game">
-            You're playing <strong>game name</strong>
+            You're playing <strong>{props.engine.gameName}</strong>
           </p>
 
           {/* player state: {playerState()} {JSON.stringify(props.engine.player())} */}
@@ -91,15 +91,18 @@ const PG: Component<Room & {engine: PromptGuessGameEngine}> = (props) => {
                 <Match when={playerState() === State.CreatingLies}>
                   <Show when={props.engine.gameState.generations[0].player.id !== props.userId}
                     fallback={"You are responsible for this masterpiece. gj."}>
-                    <input onchange={(e) => { setInputVal(e.currentTarget.value) }} />
-                    <button onclick={() => props.engine.caption(inputVal())}>Fool others!</button>
+                    {props.engine.renderGenerationPrompt(props.engine.gameState.generations[0])}
+                    <div style="margin-top: 10px;">
+                      <input onchange={(e) => { setInputVal(e.currentTarget.value) }} />
+                      <button onclick={() => props.engine.caption(inputVal())}>Fool others!</button>
+                    </div>
                   </Show>
                 </Match>
                 <Match when={playerState() === State.Waiting}>
                   Waiting on other players.
                 </Match>
                 <Match when={playerState() === State.Voting}>
-                  Which prompt made it?
+                  {props.engine.renderGenerationPrompt(props.engine.gameState.generations[0])}
                 </Match>
                 <Match when={playerState() === State.Scoring}>
                   <>

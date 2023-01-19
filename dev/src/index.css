@@ -20,6 +20,8 @@ body {
   --custom-spacing: 5px;
   --transition-s: 150ms;
 
+  --game-body-bg: #8ecae6;
+
   background-color: var(--custom-bg-color);
   color: var(--custom-color);
   font-family: var(--custom-font-family);
@@ -262,7 +264,7 @@ input {
 .GameLobby { 
   --avatar-size: 36px;
 
-  background-color: #8ecae6;
+  background-color: var(--game-body-bg);
   padding-bottom: 1.5rem;
   padding-top: 1.5rem;
 }
@@ -404,7 +406,7 @@ input {
 
 
 .PG-Game {
-  background-color: var(--custom-color-brand);
+  background-color: var(--game-body-bg);
   margin: 0 auto;
   max-width: 1140px;
   
@@ -421,10 +423,16 @@ input {
   width: 400px;
 }
 .PG-Game-Left-Generation {
-  display: flex;
   align-items: center;
-  justify-content: center;
+  display: flex;
+  flex-direction: column;
   height: 400px;
+  justify-content: center;
+  padding: 0 1rem;
+
+}
+.PG-Game-Left-Generation > img {
+  padding: 0;
 }
 .PG-Game-Left-Generation img {
   width: 100%;
