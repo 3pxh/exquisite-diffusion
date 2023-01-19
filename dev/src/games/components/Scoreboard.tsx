@@ -1,24 +1,15 @@
 import { Component, createEffect, createSignal, Switch, Match, Show, For } from 'solid-js'
-import { AbstractPlayer, Score } from '../engines/types';
+import { AvatarPlayer, Score } from '../engines/types';
 
 const Scoreboard: Component<{
-  scores: Record<AbstractPlayer["id"], Score>,
-  players: AbstractPlayer[]
+  scores: Record<AvatarPlayer["id"], Score>,
+  players: AvatarPlayer[]
 }> = (props) => {
-  const playerInfo: Map<AbstractPlayer["id"], AbstractPlayer> = new Map();
-  props.players.forEach((p: AbstractPlayer) => {
-    playerInfo.set(p.id, p);
-  });
-
-  // const sortedScores = [...props.scores].sort((s1, s2) => {
-  //   return s2.current - s1.current;
-  // })
-
 	return (
     <>
       <h3>Scores:</h3>
-      <For each={props.players}>{(p, i) => {
-        return <p>{props.scores[p.id].current}</p>
+      <For each={props.players.sort((p1, p2) => props.scores[p2.id].current - props.scores[p1.id].current)}>{(p, i) => {
+        return <p><img src={p.avatar ?? ''} width="32" /> {props.scores[p.id].current}</p>
       }}</For>
     </>
 	)

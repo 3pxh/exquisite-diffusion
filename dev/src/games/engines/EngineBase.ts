@@ -34,6 +34,8 @@ export class EngineBase<GameState, Message, Player extends AbstractPlayer> {
   setPlayer: Setter<Player>
   players: Accessor<Player[]>
   setPlayers: Setter<Player[]>
+  error: Accessor<string>
+  setError: Setter<string>
 
   constructor(gameInit: GameInstance<GameState>) {
     this.roomId = gameInit.roomId;
@@ -48,6 +50,7 @@ export class EngineBase<GameState, Message, Player extends AbstractPlayer> {
     this.clientReducers = [];
     [this.player, this.setPlayer] = createSignal({id: this.userId} as Player);
     [this.players, this.setPlayers] = createSignal([{id: this.userId}] as Player[]);
+    [this.error, this.setError] = createSignal('');
 
     this.subscribeToParticipants(gameInit.roomId);
 
@@ -61,7 +64,6 @@ export class EngineBase<GameState, Message, Player extends AbstractPlayer> {
   }
 
   updatePlayer(p: Partial<Player>) {
-    console.log("updating player", p, this.player())
     const up = Object.assign({...this.player()}, p)
     this.setPlayer(up as any);
     supabase.from('participants').update({
@@ -69,9 +71,8 @@ export class EngineBase<GameState, Message, Player extends AbstractPlayer> {
       user: this.userId,
       data: up,
     }).eq('user', this.userId).eq('room', this.roomId).then(({ data, error, status }) => {
-      if (error) { EngineBase.onError({name: "Could not update participant", error}); }
+      if (error) { this.onError({name: "Could not update participant", error}); }
     });
-    console.log("set players", this.players().map(p => up.id === p.id ? up : p))
     // Aggressively update ourselves in the player list.
     this.setPlayers(this.players().map(p => up.id === p.id ? up : p));
   }
@@ -81,7 +82,7 @@ export class EngineBase<GameState, Message, Player extends AbstractPlayer> {
       data: this.gameState,
     }).eq('id', this.roomId).select();
     if (error) {
-      EngineBase.onError({name: "Could not init room", error});
+      this.onError({name: "Could not init room", error});
     }
   }
 
@@ -148,7 +149,7 @@ export class EngineBase<GameState, Message, Player extends AbstractPlayer> {
       user_id: this.userId, // Needed for RLS
       data: m,
     }).then(({ data, error, status }) => {
-      if (error) { EngineBase.onError({name: "Could not send client message", error}); }
+      if (error) { this.onError({name: "Could not send client message", error}); }
     });
   }
 
@@ -182,7 +183,7 @@ export class EngineBase<GameState, Message, Player extends AbstractPlayer> {
 
   mutateAndBroadcastGameState(f: (gs: GameState) => void) {
     if (!this.isHost) {
-      EngineBase.onError({name: "Trying to broadcast game state but not a host."})
+      this.onError({name: "Trying to broadcast game state but not a host."})
     } else {
       this.setGameState(produce(f));
       this.#sendHostUpdate();
@@ -196,7 +197,7 @@ export class EngineBase<GameState, Message, Player extends AbstractPlayer> {
         timestamp: (new Date()).getTime(),
       },
     }).eq('id', this.roomId).select().then(({ data, error, status }) => {
-      if (error) { EngineBase.onError({name: "Could not send host update", error}); }
+      if (error) { this.onError({name: "Could not send host update", error}); }
     });
   }
 
@@ -207,7 +208,8 @@ export class EngineBase<GameState, Message, Player extends AbstractPlayer> {
     this.clientReducers.push(r);
   }
 
-  static onError(e: any) {
+  onError(e: {name: string, error?: any, display?: string}) {
+    this.setError(e.display ?? e.name)
     console.error(e);
   }
 

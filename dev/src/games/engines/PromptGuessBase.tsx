@@ -1,9 +1,9 @@
-import { createEffect } from 'solid-js';
+import { createSignal, Accessor, Setter, JSX } from 'solid-js'
 import { supabase } from '../../supabaseClient'
 import { EngineBase, Room } from './EngineBase'
 import { AbstractPlayerBase, Score } from './types';
 
-type Player = AbstractPlayerBase<{
+export type Player = AbstractPlayerBase<{
   handle?: string,
   state?: State,
   avatar?: string,
@@ -25,7 +25,7 @@ type Generation = {
   generationType: "list" | "image" | "text",
   prompt: string,
   text?: string,
-  image?: string,
+  url?: string,
   gisticlePrefix?: string,
 }
 
@@ -79,9 +79,18 @@ function initState(): GameState {
   }
 }
 
+const shuffle = <T,>(A: T[]) => {
+  return A.map(value => ({ value, sort: Math.random() }))
+          .sort((a, b) => a.sort - b.sort)
+          .map(({ value }) => value);
+}
+
 export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player> {
+  gameName: string
+
   constructor(init: Room) {
     super({...init, initState: initState()});
+    this.gameName = "False Starts";
 
     super.registerClientReducer((oldState: GameState, newState: GameState) => {
       // WARNING: the order of these lines is important. 
@@ -96,6 +105,7 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
       if (m.type === "Generation") {
         gs.generations = [...gs.generations, m.generation!];
         if (gs.generations.length === this.players().length) {
+          gs.generations = shuffle([...gs.generations]);
           this.setHostState(State.CreatingLies);
         }
       } else if (m.type === "CaptionResponse") {
@@ -104,6 +114,10 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
           caption: m.caption!
         }];
         if (gs.captions.length === this.players().length - 1) {
+          gs.captions = shuffle([...gs.captions, {
+            player: gs.generations[0].player.id,
+            caption: gs.generations[0].prompt,
+          }]);
           this.setHostState(State.Voting);
         }
       } else if (m.type === "CaptionVote") {
@@ -141,6 +155,18 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
     });
   }
 
+  renderPrompt(): JSX.Element {
+    return <h2>Make something fun</h2>
+  }
+
+  renderGenerationPrompt(g: Generation): JSX.Element {
+    return <></>
+  }
+
+  renderGeneration(g: Generation): JSX.Element {
+    return <h3 style="white-space: pre-wrap;">{g.text}</h3>;
+  }
+
   setHostState(s: State, mutation?: (gs: GameState) => void) {
     this.setPlayerState(s);
     super.mutateAndBroadcastGameState((gs: GameState) => {
@@ -174,6 +200,7 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
   }
 
   setPlayerState(s: State) {
+    this.setError(''); // This makes a lot of assumptions about control flow
     if (this.player().state !== s) {
       super.updatePlayer({ state: s });
     }
@@ -197,8 +224,7 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
     });
   }
 
-  async generate(prompt: string) {
-    this.setPlayerState(State.Waiting);
+  async generateApi(prompt: string) {
     const { data, error } = await supabase.functions.invoke("generate", {
       body: JSON.stringify({
         room: this.roomId,
@@ -207,10 +233,20 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
         generationType: "text",
       })
     });
+    return {data, error}
+  }
+
+  async generate(prompt: string) {
+    this.setPlayerState(State.Waiting);
+    const { data, error } = await this.generateApi(prompt);
     if (data.error || error) {
       const e = data.error || error;
-      EngineBase.onError({name: "Error generating prompt", prompt, e});
       this.setPlayerState(State.WritingPrompts);
+      this.onError({
+        name: "Error generating prompt", 
+        display: e,
+        error: {prompt, e: e}
+      });
     }
   }
 
@@ -234,4 +270,88 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
     });
   }
 
+}
+
+export class PGImageEngine extends PromptGuessGameEngine {
+  constructor(init: Room) {
+    super({...init});
+    this.gameName = "Farsketched";
+  }
+
+  renderGeneration(g: Generation) {
+    return <img src={g.url!} />
+  }
+
+  renderPrompt(): JSX.Element {
+    return <h2>Make a picture of...</h2>
+  }
+
+  async generateApi(prompt: string) {
+    const { data, error } = await supabase.functions.invoke("generate", {
+      body: JSON.stringify({
+        room: this.roomId,
+        player: this.player(),
+        prompt: prompt,
+        generationType: "image",
+      })
+    });
+    return {data, error}
+  }
+}
+
+const chooseOne = <T,>(A: T[]) => {
+  return A[Math.floor(Math.random() * A.length)];
+}
+
+export class PGGisticleEngine extends PromptGuessGameEngine {
+  static TEMPLATES = [
+    "List the top 5 best",
+    "List the top 5 reasons you should",
+    "List the top 5 most ridiculous ways to",
+    "List the top 5 most obvious signs",
+  ]
+  prefix: Accessor<string>
+  setPrefix: Setter<string>
+
+  constructor(init: Room) {
+    super({...init});
+    this.gameName = "Gisticle";
+    [this.prefix, this.setPrefix] = createSignal<string>(chooseOne(PGGisticleEngine.TEMPLATES))
+  }
+
+  setPlayerState(s: State) {
+    if (this.player().state !== s && s === State.WritingPrompts) {
+      this.setPrefix(chooseOne(PGGisticleEngine.TEMPLATES));
+    }
+    super.setPlayerState(s);
+  }
+
+  renderPrompt(): JSX.Element {
+    return <h2>{this.prefix()}...</h2>
+  }
+
+  renderGenerationPrompt(g: Generation) {
+    return <>
+      <h3>{g.gisticlePrefix} ___</h3>
+    </>
+  }
+
+  renderGeneration(g: Generation) {
+    return <>
+      <h3 style="white-space: pre-wrap;">{g.text}</h3>
+    </>
+  }
+
+  async generateApi(prompt: string) {
+    const { data, error } = await supabase.functions.invoke("generate", {
+      body: JSON.stringify({
+        room: this.roomId,
+        player: this.player(),
+        prompt: prompt,
+        generationType: "list",
+        gisticlePrefix: this.prefix(),
+      })
+    });
+    return {data, error}
+  }
 }
