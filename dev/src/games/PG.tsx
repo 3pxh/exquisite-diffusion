@@ -85,8 +85,10 @@ const PG: Component<Room & {engine: PromptGuessGameEngine}> = (props) => {
               <Switch fallback={"Unrecognized Game State"}>
                 <Match when={playerState() === State.WritingPrompts}>
                   {props.engine.renderPrompt()}
-                  <input onchange={(e) => { setInputVal(e.currentTarget.value) }} />
-                  <button onclick={() => props.engine.generate(inputVal())}>Make it so!</button>
+                  <div style="margin-top: 10px;">
+                    <input onchange={(e) => { setInputVal(e.currentTarget.value) }} />
+                    <button onclick={() => props.engine.generate(inputVal())}>Make it so!</button>
+                  </div>
                 </Match>
                 <Match when={playerState() === State.CreatingLies}>
                   <Show when={props.engine.gameState.generations[0].player.id !== props.userId}

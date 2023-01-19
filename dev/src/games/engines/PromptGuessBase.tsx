@@ -282,6 +282,10 @@ export class PGImageEngine extends PromptGuessGameEngine {
     return <img src={g.url!} />
   }
 
+  renderPrompt(): JSX.Element {
+    return <h2>Make a picture of...</h2>
+  }
+
   async generateApi(prompt: string) {
     const { data, error } = await supabase.functions.invoke("generate", {
       body: JSON.stringify({
