@@ -32,23 +32,19 @@ const Chatroom: Component<{roomId: number}> = (props) => {
   const [isOpen, setIsOpen] = createSignal<boolean>(true)
 
   const updateUuidTable = async (id: string) => {
-    console.log("UUID", id)
 
     if (!id || uuidToPlayerIndex()[id] !== undefined) {
       return;
     } else {
-      console.log("setting new ", id, uuidToPlayerIndex());
       const new_uuid_to_player_index = {...uuidToPlayerIndex()}
       new_uuid_to_player_index[id] = Object.entries(new_uuid_to_player_index).length;
       setUuidToPlayerIndex(new_uuid_to_player_index);
-
     }
   };
 
   createEffect(async () => {
     const el = document.getElementById("Chatroom-Messages");
     if (el) { el.scrollTop = el.scrollHeight; }
-    console.log("subscribing to messages", props.roomId);
     supabase
       .channel(`public:chats:room_id=eq.${props.roomId}`)
       .on('postgres_changes', {
@@ -56,7 +52,13 @@ const Chatroom: Component<{roomId: number}> = (props) => {
       }, payload => {
         const el = document.getElementById("Chatroom-Messages");
         const wasScrolledDown = true;//el ? el.scrollTop + el.clientHeight >= el.scrollHeight : false;
-        console.log(`Recieved ${payload.new.message.text}`)
+        if (!uuidToPlayerIndex()[payload.new.message.player.uuid]) {
+          supabase.from('participants').select(`user`).eq('room', props.roomId).order('id').then(({data, error}) => {
+            data?.forEach(d => {
+              updateUuidTable(d.user);
+            });
+          });
+        }
         setMessages(messages().concat({
             text: payload.new.message.text,
             player: payload.new.message.player.handle,
@@ -69,18 +71,21 @@ const Chatroom: Component<{roomId: number}> = (props) => {
       }).subscribe();
 
     supabase.from('participants').select(`user`).eq('room', props.roomId).order('id').then(({data, error}) => {
-      console.log("IMPORT", data);
       data?.forEach(d => {
         updateUuidTable(d.user);
       });
     });
 
-    supabase
-      .channel(`public:participants:room=eq.${props.roomId}`)
-      .on('postgres_changes', {
-          event: 'INSERT', schema: 'public', table: 'participants', filter: `room=eq.${props.roomId}`
-        }, (data) => {console.log("insert", data); updateUuidTable(data.new.user)})
-      .subscribe();
+    // It turns out subscribing to this breaks the game, which also subscribes to it.
+    // The proper fix would be to make a handler pooler in supabaseClient which
+    // can register additional handlers to execute on the same subscription.
+    // But since we'll probably migrate to Firebase soon anyway, who cares.
+    // supabase
+    //   .channel(`public:participants:room=eq.${props.roomId}`)
+    //   .on('postgres_changes', {
+    //       event: 'INSERT', schema: 'public', table: 'participants', filter: `room=eq.${props.roomId}`
+    //     }, (data) => {console.log("insert", data); updateUuidTable(data.new.user)})
+    //   .subscribe();
   })
 
   const sendMessage = async () => {
