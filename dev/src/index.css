@@ -404,7 +404,11 @@ input {
   opacity: .3;
 }
 
-
+.PG-timer {
+  height: 10px;
+  background-color: white;
+  width: 100%;
+}
 .PG-Game {
   background-color: var(--game-body-bg);
   margin: 0 auto;

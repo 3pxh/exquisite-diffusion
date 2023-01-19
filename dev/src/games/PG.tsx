@@ -79,6 +79,7 @@ const PG: Component<Room & {engine: PromptGuessGameEngine}> = (props) => {
       </Show>
 
       <Show when={playerState() !== State.Lobby}>
+        <div class="PG-timer" style={`width: ${props.engine.timer.percentRemaining() > 0 ? props.engine.timer.percentRemaining() : 100}%`}></div>
         <div class="PG-Game">
           <div class="PG-Game-Left">
           <div class="PG-Game-Left-Prompt">
@@ -91,13 +92,16 @@ const PG: Component<Room & {engine: PromptGuessGameEngine}> = (props) => {
                   </div>
                 </Match>
                 <Match when={playerState() === State.CreatingLies}>
-                  <Show when={props.engine.gameState.generations[0].player.id !== props.userId}
-                    fallback={"You are responsible for this masterpiece. gj."}>
-                    {props.engine.renderGenerationPrompt(props.engine.gameState.generations[0])}
-                    <div style="margin-top: 10px;">
-                      <input onchange={(e) => { setInputVal(e.currentTarget.value) }} />
-                      <button onclick={() => props.engine.caption(inputVal())}>Fool others!</button>
-                    </div>
+                  <Show when={props.engine.gameState.generations.length > 0}
+                    fallback={"Waiting on the AI..."}>
+                    <Show when={props.engine.gameState.generations[0].player.id !== props.userId}
+                      fallback={"You are responsible for this masterpiece. gj."}>
+                      {props.engine.renderGenerationPrompt(props.engine.gameState.generations[0])}
+                      <div style="margin-top: 10px;">
+                        <input onchange={(e) => { setInputVal(e.currentTarget.value) }} />
+                        <button onclick={() => props.engine.caption(inputVal())}>Fool others!</button>
+                      </div>
+                    </Show>
                   </Show>
                 </Match>
                 <Match when={playerState() === State.Waiting}>
@@ -124,7 +128,9 @@ const PG: Component<Room & {engine: PromptGuessGameEngine}> = (props) => {
                 <Match when={playerState() === State.CreatingLies || 
                             playerState() === State.Voting ||
                             playerState() === State.Scoring}>
-                  {props.engine.renderGeneration(props.engine.gameState.generations[0])}
+                  <Show when={props.engine.gameState.generations.length > 0} fallback={"Waiting on the AI..."}>
+                    {props.engine.renderGeneration(props.engine.gameState.generations[0])}
+                  </Show>
                 </Match>
               </Switch>
             </div>
