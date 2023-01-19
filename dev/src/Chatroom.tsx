@@ -17,7 +17,7 @@ const HTML_PLAYER_COLORS = [
     "#ff00ff", // purple
 ]
 
-const getHtmlPlayerStyle = index => {
+const getHtmlPlayerStyle = (index: number) => {
     if (index == -1) {
         return "color:#ffffff" // Use white for unknown player/error
     }
@@ -31,17 +31,18 @@ const Chatroom: Component<{roomId: number}> = (props) => {
   const [uuidToPlayerIndex, setUuidToPlayerIndex] = createSignal<{ [key: string]: number }>({})
   const [isOpen, setIsOpen] = createSignal<boolean>(true)
 
-  const updateUuidTable = async payload => {
-      console.log("Updating UUID table....")
-      const participants = await supabase.from('participants').select(`user`).eq('room', props.roomId).order('id')
-      console.log("Fetched participants.")
+  const updateUuidTable = async (id: string) => {
+    console.log("UUID", id)
 
-      const new_uuid_to_player_index : { [key: string]: int} = {};
-      for (var i = 0; i < participants.data.length; i++) {
-          console.log(`Player ${i} is ${participants.data[i].user}`)
-          new_uuid_to_player_index[participants.data[i].user] = i;
-      }
+    if (!id || uuidToPlayerIndex()[id] !== undefined) {
+      return;
+    } else {
+      console.log("setting new ", id, uuidToPlayerIndex());
+      const new_uuid_to_player_index = {...uuidToPlayerIndex()}
+      new_uuid_to_player_index[id] = Object.entries(new_uuid_to_player_index).length;
       setUuidToPlayerIndex(new_uuid_to_player_index);
+
+    }
   };
 
   createEffect(async () => {
@@ -53,15 +54,6 @@ const Chatroom: Component<{roomId: number}> = (props) => {
       .on('postgres_changes', {
         event: 'INSERT', schema: 'public', table: 'chats', filter: `room_id=eq.${props.roomId}`
       }, payload => {
-
-        // Note: this is a hack.  The subscription below to the participants
-        // table isn't working for some reason.  So until that works, we're
-        // updating our player table whenever an unfamiliar participant says
-        // something.
-        if (!uuidToPlayerIndex().hasOwnProperty(payload.new.message.player.uuid)) {
-            updateUuidTable();
-        }
-
         const el = document.getElementById("Chatroom-Messages");
         const wasScrolledDown = true;//el ? el.scrollTop + el.clientHeight >= el.scrollHeight : false;
         console.log(`Recieved ${payload.new.message.text}`)
@@ -76,20 +68,19 @@ const Chatroom: Component<{roomId: number}> = (props) => {
 
       }).subscribe();
 
-    updateUuidTable();
+    supabase.from('participants').select(`user`).eq('room', props.roomId).order('id').then(({data, error}) => {
+      console.log("IMPORT", data);
+      data?.forEach(d => {
+        updateUuidTable(d.user);
+      });
+    });
 
-    // TODO: this subscription doesn't seem to do anything.
-    /*
     supabase
       .channel(`public:participants:room=eq.${props.roomId}`)
-      .on('postgress_changes', {
+      .on('postgres_changes', {
           event: 'INSERT', schema: 'public', table: 'participants', filter: `room=eq.${props.roomId}`
-        }, updateUuidTable)
-      .on('postgress_changes', {
-          event: 'UPDATE', schema: 'public', table: 'participants', filter: `room=eq.${props.roomId}`
-        }, updateUuidTable)
+        }, (data) => {console.log("insert", data); updateUuidTable(data.new.user)})
       .subscribe();
-    */
   })
 
   const sendMessage = async () => {
@@ -121,14 +112,14 @@ const Chatroom: Component<{roomId: number}> = (props) => {
           <For each={messages()}>{(m, i) =>
             <p>
               <strong style={getHtmlPlayerStyle(uuidToPlayerIndex()[m.uuid] ?? -1)} >
-                {m.player}:
+                {m.player}: 
               </strong>
               {m.text}
             </p>
           }</For>
         </div>
         <div id="Chatroom-Input">
-          <span style={getHtmlPlayerStyle(uuidToPlayerIndex()[session()?.user.id] ?? -1)} >
+          <span style={getHtmlPlayerStyle(uuidToPlayerIndex()[session()?.user.id!] ?? -1)} >
             {playerHandle()}
           </span>
           <input onkeydown={(e) => {e.key === "Enter" ? sendMessage() : "";}} id="Chatroom-newMessage" type="text" placeholder="yo yo yo" />
