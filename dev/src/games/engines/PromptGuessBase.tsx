@@ -2,6 +2,8 @@ import { createSignal, Accessor, Setter, JSX } from 'solid-js'
 import { supabase } from '../../supabaseClient'
 import { EngineBase, Room } from './EngineBase'
 import { AbstractPlayerBase, Score } from './types';
+import { Timer, TimerSerial } from './Timer'
+import { unwrap } from 'solid-js/store';
 
 export type Player = AbstractPlayerBase<{
   handle?: string,
@@ -65,7 +67,7 @@ type GameState = {
   scores: Record<Player["id"], PGScore>,
   round: number,
   version: "1.0.0",
-}
+} & TimerSerial
 
 function initState(): GameState {
   return {
@@ -76,6 +78,7 @@ function initState(): GameState {
     scores: {},
     round: 1,
     version: "1.0.0",
+    ...Timer.initState()
   }
 }
 
@@ -87,10 +90,23 @@ const shuffle = <T,>(A: T[]) => {
 
 export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player> {
   gameName: string
+  timer: Timer
+  mutationMap: Record<State, (gs: GameState) => void>
 
   constructor(init: Room) {
     super({...init, initState: initState()});
     this.gameName = "False Starts";
+    this.timer = new Timer();
+    const noop = (gs: GameState) => {};
+    this.mutationMap = {
+      [State.Lobby]: noop,
+      [State.Finished]: noop,
+      [State.WritingPrompts]: noop,
+      [State.Waiting]: noop,
+      [State.CreatingLies]: this.generationMutation,
+      [State.Voting]: this.captionMutation,
+      [State.Scoring]: this.scoreMutation,
+    }
 
     super.registerClientReducer((oldState: GameState, newState: GameState) => {
       // WARNING: the order of these lines is important. 
@@ -99,13 +115,16 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
         this.setPlayerState(newState.roomState);
       }
       this.setGameState(newState);
+      this.timer.setFromSerial(newState, this.outOfTime);
     });
     
     super.registerHostReducer((gs: GameState, m: Message) => {
       if (m.type === "Generation") {
         gs.generations = [...gs.generations, m.generation!];
-        if (gs.generations.length === this.players().length) {
-          gs.generations = shuffle([...gs.generations]);
+        // If we've already moved on from writing the append is good (and silent).
+        // If we try to set host state again, it will shuffle.
+        if (gs.generations.length === this.players().length &&
+            gs.roomState === State.WritingPrompts) {
           this.setHostState(State.CreatingLies);
         }
       } else if (m.type === "CaptionResponse") {
@@ -114,10 +133,6 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
           caption: m.caption!
         }];
         if (gs.captions.length === this.players().length - 1) {
-          gs.captions = shuffle([...gs.captions, {
-            player: gs.generations[0].player.id,
-            caption: gs.generations[0].prompt,
-          }]);
           this.setHostState(State.Voting);
         }
       } else if (m.type === "CaptionVote") {
@@ -126,33 +141,62 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
           author: m.vote!
         }];
         if (gs.votes.length === this.players().length - 1) {
-          const scoreMutation = (gs: GameState) => {
-            const scoreDeltas:Record<Player["id"], PGScore> = {};
-            gs.votes.forEach(v => {
-              if (v.author === gs.generations[0].player.id) {
-                gs.scores[v.voter].iVoteTruth += 1;
-                gs.scores[v.voter].previous = gs.scores[v.voter].current;
-                gs.scores[v.voter].current += 1000;
-
-                gs.scores[v.author].myTruthsVoted += 1;
-                gs.scores[v.author].previous = gs.scores[v.author].current;
-                gs.scores[v.author].current += 1000;
-              } else {
-                gs.scores[v.voter].iVoteLies += 1;
-
-                gs.scores[v.author].myLiesVoted += 1;
-                gs.scores[v.author].previous = gs.scores[v.author].current;
-                gs.scores[v.author].current += 500;
-              }
-            })
-          }
-          this.setHostState(State.Scoring, scoreMutation);
+          this.setHostState(State.Scoring);
         }
       }
     });
     super.updatePlayer({
       state: State.Lobby,
     });
+  }
+
+  generationMutation = (gs: GameState) => {
+    gs.generations = shuffle([...gs.generations]);
+  }
+
+  captionMutation = (gs: GameState) => {
+    gs.captions = shuffle([...gs.captions, {
+      player: gs.generations[0].player.id,
+      caption: gs.generations[0].prompt,
+    }]);
+  }
+
+  scoreMutation = (gs: GameState) => {
+    const scoreDeltas:Record<Player["id"], PGScore> = {};
+    gs.votes.forEach(v => {
+      if (v.author === gs.generations[0].player.id) {
+        gs.scores[v.voter].iVoteTruth += 1;
+        gs.scores[v.voter].previous = gs.scores[v.voter].current;
+        gs.scores[v.voter].current += 1000;
+
+        gs.scores[v.author].myTruthsVoted += 1;
+        gs.scores[v.author].previous = gs.scores[v.author].current;
+        gs.scores[v.author].current += 1000;
+      } else {
+        gs.scores[v.voter].iVoteLies += 1;
+
+        gs.scores[v.author].myLiesVoted += 1;
+        gs.scores[v.author].previous = gs.scores[v.author].current;
+        gs.scores[v.author].current += 500;
+      }
+    })
+  }
+
+  outOfTime() {
+    // TODO: we need to do all of the transitiony things that we were doing in host reducer.
+    if (this.isHost) {
+      switch(unwrap(this.gameState.roomState)) {
+        case State.WritingPrompts:
+          this.setHostState(State.CreatingLies);
+          break;
+        case State.CreatingLies:
+          this.setHostState(State.Voting);
+          break;
+        case State.Voting:
+          this.setHostState(State.Scoring);
+          break;
+      }
+    }
   }
 
   renderPrompt(): JSX.Element {
@@ -168,12 +212,28 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
   }
 
   setHostState(s: State, mutation?: (gs: GameState) => void) {
+    if (s === State.WritingPrompts) {
+      this.timer.countdown(30, () => { this.outOfTime() });
+    } else if (s === State.CreatingLies) {
+      if (unwrap(this.gameState.generations.length) > 0) {
+        this.timer.countdown(15, () => { this.outOfTime() });
+      }
+    } else if (s === State.Voting) {
+      this.timer.countdown(20, () => { this.outOfTime() });
+    } else {
+      this.timer.unset();
+    }
     this.setPlayerState(s);
     super.mutateAndBroadcastGameState((gs: GameState) => {
       gs.roomState = s;
+      // TODO: Make this generic.
+      const t = this.timer.serialize();
+      gs.start = t.start;
+      gs.end = t.end;
       if (mutation) {
         mutation(gs);
       }
+      this.mutationMap[s](gs);
     })
   }
 
