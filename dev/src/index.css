@@ -21,8 +21,10 @@ body {
   --transition-s: 150ms;
 
   --game-body-bg: #8ecae6;
+  --header-color: #219ebc;
+  --bg-color: #00708d;
 
-  background-color: var(--custom-bg-color);
+  background-color: var(--bg-color);
   color: var(--custom-color);
   font-family: var(--custom-font-family);
   margin: 0;
@@ -221,7 +223,7 @@ input {
 .GameHeader {
   --avatar-size: 48px;
 
-  background-color: #219ebc;
+  background-color: var(--header-color);
   padding-bottom: 1rem;
   padding-top: 1rem;
   position: relative;
@@ -412,8 +414,10 @@ input {
 .PG-Game {
   background-color: var(--game-body-bg);
   margin: 0 auto;
+}
+.PG-Game-Container {
+  margin: 0 auto;
   max-width: 1140px;
-  
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
