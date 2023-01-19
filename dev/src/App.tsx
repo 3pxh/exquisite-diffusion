@@ -76,10 +76,6 @@ const App: Component = () => {
 
 	return (
     <div class="App">
-      <aside class="Notice">
-        ⚠️ (DXT test??)
-      </aside>
-
       <Switch>
         <Match when={session() === null}>
           <AuthSelection />

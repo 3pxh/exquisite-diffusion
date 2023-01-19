@@ -33,16 +33,17 @@ const AvatarPicker: Component<{players: Player[], setAvatarUrl: (url: string) =>
   })
 
   return (
-    <div style="display: flex; flex-direction: row; max-width:400px; flex-wrap: wrap;">
+    <div style="display: flex; flex-direction: row; max-width:340px; flex-wrap: wrap; background:rgba(0,0,0,.05);">
       <For each={avatars()}>{(a, i) => {
         const url = formatUrl(a.name);
-        const claimedStyle = `opacity: .2`;
+        const baseStyle = `margin:2px; border-radius:50%;`
+        const claimedStyle = `opacity: .2; ${baseStyle}`;
         return <>
           <Show when={claimedAvatars().has(url)}>
             <img src={url} width="64" style={claimedStyle} />
           </Show>
           <Show when={!claimedAvatars().has(url)}>
-            <img src={url} width="64"
+            <img style={baseStyle} src={url} width="64"
                   onclick={() => {props.setAvatarUrl(url)}} />
           </Show>
         </>
