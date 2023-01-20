@@ -1,9 +1,68 @@
-import { Component, createSignal, For, Show } from 'solid-js'
+import { Component, createEffect, createSignal, For, Show } from 'solid-js'
 import { supabase } from './supabaseClient'
 
 import { GameType } from './GameTypes'
 import { useAuth } from './AuthProvider';
 import JoinGame from './JoinGame'
+
+const GAMES = [
+  {type: GameType.PGImage, title: "Farsketched", description: "The original AI prompt guessing game!", imageFolder: "far-sketched-landscapes"},
+  {type: GameType.PGGisticle, title: "Gisticle", description: "The best way to write listicles.", imageFolder: "gisticle-g"},
+  {type: GameType.PG, title: "What's Past is Prologue", description: "Begin a story and see where it goes."},
+  {type: GameType.Hadron64, title: "Hadron 64", description: "Race to match patterns!"},
+  {type: null, title: "Join a game", description: ""},
+
+  {type: GameType.SDPromptGuess, title: "Farsketched V0", description: "Imaaaagination!!"},
+  {type: GameType.Gisticle, title: "Gisticle V0", description: "Listicles, the game."},
+  {type: GameType.NeoXPromptGuess, title: "False Starts V0", description: "How to begin the story?"},
+]
+
+const gameUrls: { [key: number]: string[] } = {};
+GAMES.forEach(g => {
+  if (g.imageFolder) {
+    supabase
+      .storage
+      .from('game-album-art')
+      .list(g?.imageFolder, {
+        limit: 1000,
+        offset: 0,
+        sortBy: { column: 'name', order: 'asc' },
+      }).then(({ data, error }) => {
+        gameUrls[g.type] = data?.slice(1).map(d => d.name) ?? [];
+      })
+  }
+});
+
+type GameInfo = {type: GameType | null, title: string, description: string, imageFolder?: string};
+
+const GameDetails: Component<{game: GameType}> = (props) => {
+  const [image, setImage] = createSignal<string | null>(null);
+  const [game, setGame] = createSignal<GameInfo | null>(null);
+  
+  const chooseOne = <T,>(A: T[]): T => {
+    return A[Math.floor(Math.random() * A.length)];
+  }
+
+  createEffect(() => {
+    setGame(GAMES.find(g => g.type === props.game)!)
+    if (gameUrls[game()?.type!]) {
+      const BUCKET = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/game-album-art/${game()?.imageFolder}`
+      setImage(`${BUCKET}/${chooseOne((gameUrls[game()?.type!]))}`);
+    } else {
+      setImage(null);
+    }
+  })
+  
+  return (<>
+    <div class="GameSelection-Details-Title">
+      {game()?.title}
+    </div>
+    <div class="GameSelection-Details-Description">
+      {game()?.description}
+    </div>
+      <img width="400" src={image() ?? ''} />
+  </>)
+} 
 
 const GameSelection: Component<{chooseGame: (g: GameType, roomId: number, shortcode: string, isHost?: boolean) => void}> = (props) => {
   const { session, setPlayerHandle } = useAuth();
@@ -56,56 +115,31 @@ const GameSelection: Component<{chooseGame: (g: GameType, roomId: number, shortc
     }
   }
 
-  const games = [
-    {type: GameType.PGImage, title: "Farsketched", description: "The original AI prompt guessing game!"},
-    {type: GameType.PGGisticle, title: "Gisticle", description: "The best way to write listicles."},
-    {type: GameType.PG, title: "What's Past is Prologue", description: "Begin a story and see where it goes."},
-    {type: GameType.Hadron64, title: "Hadron 64", description: "Race to match patterns!"},
-    {type: null, title: "Join a game", description: ""},
-
-    {type: GameType.SDPromptGuess, title: "Farsketched V0", description: "Imaaaagination!!"},
-    {type: GameType.Gisticle, title: "Gisticle V0", description: "Listicles, the game."},
-    {type: GameType.NeoXPromptGuess, title: "False Starts V0", description: "How to begin the story?"},
-  ]
-
 	return (
 		<div class="GameSelection">
       {isCreatingRoom() ? 
       "Creating room..." :
       <>
       <div class="GameSelection-Left">
-        <h1>Choose a game:</h1>
-        <For each={games}>{(g) => {
-          return (<>
-          <div classList={{
-            "GameSelection-GameTitle": true,
-            "GameSelection--Selected": g.type === gameType(),
-            "GameSelection-JoinOption": g.type === null,
-          }} onmouseenter={() => {setGameType(g.type)}}>
-            {g.title}
-          </div>
-          </>)
-        }}</For>
-        <div class="GameSelection-LeftFooter">
-          Feedback, Community, Games!<br/>
-          <ul>
-            <li><a href="https://discord.gg/XwfUZTjS2p" target="_blank">Join the 3PXH Discord!</a></li>
-            <li><a href="https://forms.gle/71FD149ktFhyYKT1A" target="_blank">Send feedback</a></li>
-            <li><a href="https://www.facebook.com/ThreePixelHeart/" target="_blank">Do people still use Facebook?</a></li>
-          </ul>
+      <h1>Choose a game:</h1>
+      <For each={GAMES}>{(g) => {
+        return (<>
+        <div classList={{
+          "GameSelection-GameTitle": true,
+          "GameSelection--Selected": g.type === gameType(),
+          "GameSelection-JoinOption": g.type === null,
+        }} onmouseenter={() => {setGameType(g.type)}}>
+          {g.title}
         </div>
+        </>)
+      }}</For>
       </div>
       <div class="GameSelection-Right">
         <Show when={gameType() === null}>
           <JoinGame chooseGame={props.chooseGame} />
         </Show>
         <Show when={gameType() !== null}>
-          <div class="GameSelection-Details-Title">
-            {games.find(g => g.type === gameType())!.title}
-          </div>
-          <div class="GameSelection-Details-Description">
-            {games.find(g => g.type === gameType())!.description}
-          </div>
+          <GameDetails game={gameType()!} />
           <div class="GameSelection-Start">
             <input placeholder='host_name' onchange={(e) => { setHostName(e.currentTarget.value) }} />
             <button onclick={() => {setNameAndChoose()}}>
