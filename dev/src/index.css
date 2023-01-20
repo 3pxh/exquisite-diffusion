@@ -31,6 +31,19 @@ body {
   padding: 0;
 }
 
+#root {
+  bottom: 0;
+  left: 0;
+  right: 0;
+  top: 0;
+  position: absolute;
+}
+
+.App {
+  height: 100%;
+  overflow-y: scroll;
+}
+
 /* Utilities */
 ._container {
   margin: 0 auto;
@@ -536,4 +549,46 @@ input {
   display: flex;
   flex-direction: row;
   width: 220px;
+}
+
+.GameSelection {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 100%;
+}
+.GameSelection-Left {
+  background-color: var(--header-color);
+  flex-shrink: 1;
+}
+.GameSelection-Right {
+  background-color: var(--game-body-bg);
+  flex: 1 1 auto;
+  padding: 2rem;
+}
+.GameSelection-GameTitle {
+  box-sizing: border-box;
+  cursor: pointer;
+  font-size: 18pt;
+  font-weight: 800;
+  padding: .5rem 1rem;
+}
+.GameSelection-GameTitle.GameSelection-JoinOption {
+  color: rgb(82, 255, 197);
+}
+.GameSelection--Selected, .GameSelection-GameTitle.GameSelection-JoinOption.GameSelection--Selected {
+  color:rgb(0, 255, 0);
+}
+.GameSelection-Details-Title {
+  font-size: 24pt;
+  font-weight: 800;
+}
+.GameSelection-Details-Description {
+  font-size: 16pt;
+}
+.GameSelection-Start {
+  margin: 20px 0;
+}
+.GameSelection-Start button {
+  margin: 0 10px;
 }

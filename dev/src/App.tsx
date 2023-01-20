@@ -99,8 +99,6 @@ const App: Component = () => {
         <Match when={authState() === AuthType.EMAIL}>
           <p>Logged in as {session()?.user.email}</p>
           <GameSelection chooseGame={chooseGame} />
-          <h2>--- or ---</h2>
-          <JoinGame chooseGame={chooseGame} />
         </Match>
       </Switch>
     </div>
