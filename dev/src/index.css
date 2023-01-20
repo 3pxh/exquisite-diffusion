@@ -40,8 +40,19 @@ body {
 }
 
 .App {
+  display: flex;
+  flex-direction: column;
   height: 100%;
   overflow-y: scroll;
+}
+
+.Header-User {
+  align-items: center;
+  background-color: white;
+  color: var(--bg-color);
+  display: flex;
+  flex-direction: row;
+  padding: 3px;
 }
 
 /* Utilities */
@@ -559,7 +570,26 @@ input {
 }
 .GameSelection-Left {
   background-color: var(--header-color);
+  display: flex;
+  flex-direction: column;
   flex-shrink: 1;
+}
+.GameSelection-Left h1 {
+  background-color: var(--bg-color);
+  margin: 0 0 5px 0;
+  padding: 1rem .5rem;
+}
+.GameSelection-LeftFooter {
+  background-color: var(--bg-color);
+  flex-grow: 1;
+  margin-top: 5px;
+  padding: 1rem;
+}
+.GameSelection-LeftFooter a {
+  color: white;
+}
+.GameSelection-LeftFooter a:hover, .GameSelection-LeftFooter a:active {
+  color: var(--game-body-bg);
 }
 .GameSelection-Right {
   background-color: var(--game-body-bg);
@@ -577,7 +607,7 @@ input {
   color: rgb(82, 255, 197);
 }
 .GameSelection--Selected, .GameSelection-GameTitle.GameSelection-JoinOption.GameSelection--Selected {
-  color:rgb(0, 255, 0);
+  background-color: var(--bg-color);
 }
 .GameSelection-Details-Title {
   font-size: 24pt;
