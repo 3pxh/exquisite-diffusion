@@ -163,20 +163,19 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
 
   scoreMutation = (gs: GameState) => {
     const scoreDeltas:Record<Player["id"], PGScore> = {};
+    Object.entries(gs.scores).forEach(([k, v]: [string, PGScore]) => {
+      gs.scores[k].previous = gs.scores[k].current
+    })
     gs.votes.forEach(v => {
       if (v.author === gs.generations[0].player.id) {
         gs.scores[v.voter].iVoteTruth += 1;
-        gs.scores[v.voter].previous = gs.scores[v.voter].current;
         gs.scores[v.voter].current += 1000;
 
         gs.scores[v.author].myTruthsVoted += 1;
-        gs.scores[v.author].previous = gs.scores[v.author].current;
         gs.scores[v.author].current += 1000;
       } else {
         gs.scores[v.voter].iVoteLies += 1;
-
         gs.scores[v.author].myLiesVoted += 1;
-        gs.scores[v.author].previous = gs.scores[v.author].current;
         gs.scores[v.author].current += 500;
       }
     })

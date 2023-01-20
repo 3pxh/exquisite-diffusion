@@ -151,7 +151,7 @@ const PG: Component<Room & {engine: PromptGuessGameEngine}> = (props) => {
               </Show>
               <Switch>
                 <Match when={playerState() === State.Voting}>
-                  <ol>
+                  <ol class="PG-VoteList">
                     <For each={props.engine.gameState.captions}>{(c, i) =>
                       <li>
                         <Switch>
@@ -170,6 +170,19 @@ const PG: Component<Room & {engine: PromptGuessGameEngine}> = (props) => {
                   </ol> 
                 </Match>
                 <Match when={playerState() === State.Scoring}>
+                  <For each={props.engine.gameState.captions}>{(c, i) =>
+                    <div class={"PG-Guess " + (c.player === props.engine.gameState.generations[0].player.id ? "PG-Truth" : "PG-Lie")}>
+                      <img class="Author" src={props.engine.players().find(p => p.id === c.player)?.avatar} />
+                      <div class="Result"> 
+                        <div class="Caption">{c.caption}</div>
+                        <div class="Guessers">
+                          <For each={props.engine.gameState.votes.filter(v => v.author === c.player)}>{(v, i) => 
+                          <img src={props.engine.players().find(p => p.id === v.voter)?.avatar} />
+                        }</For>
+                        </div>
+                      </div>
+                    </div>
+                  }</For>
                   <Scoreboard players={props.engine.players()} scores={props.engine.gameState.scores} />
                   <Show when={props.isHost}>
                     <button onclick={() => { props.engine.continueAfterScoring() }}>Continue</button>
