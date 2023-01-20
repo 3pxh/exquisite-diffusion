@@ -24,6 +24,9 @@ const PG: Component<Room & {engine: PromptGuessGameEngine}> = (props) => {
             <span class="GameHeader-room-code">
               {props.shortcode}
             </span>
+            <Show when={props.isHost}>
+              <p><input type="checkbox" checked onclick={(e) => {props.engine.toggleTimer(e.currentTarget.checked)}} /> Timer</p>
+            </Show>
           </p>
 
           <p class="GameHeader-player">
