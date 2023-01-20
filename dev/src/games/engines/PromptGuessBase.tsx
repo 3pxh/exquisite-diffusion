@@ -121,6 +121,15 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
     super.registerHostReducer((gs: GameState, m: Message) => {
       if (m.type === "Generation") {
         gs.generations = [...gs.generations, m.generation!];
+
+        // If we had nothing before, but aren't in WritingPrompts 
+        // then everyone submitted late and we need to set the timer
+        // by reaffirming the host state.
+        // Yet somehow this doesn't start the timer.
+        // if (gs.generations.length === 1 &&
+        //     gs.roomState !== State.WritingPrompts) {
+        //   this.setHostState(State.CreatingLies);
+        // }
         // If we've already moved on from writing the append is good (and silent).
         // If we try to set host state again, it will shuffle.
         if (gs.generations.length === this.players().length &&
@@ -184,6 +193,7 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
   outOfTime() {
     // TODO: we need to do all of the transitiony things that we were doing in host reducer.
     if (this.isHost) {
+      console.log("out of time", unwrap(this.gameState.roomState))
       switch(unwrap(this.gameState.roomState)) {
         case State.WritingPrompts:
           this.setHostState(State.CreatingLies);
@@ -212,13 +222,13 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
 
   setHostState(s: State, mutation?: (gs: GameState) => void) {
     if (s === State.WritingPrompts) {
-      this.timer.countdown(30, () => { this.outOfTime() });
+      this.timer.countdown(23000, 2000, () => { this.outOfTime() });
     } else if (s === State.CreatingLies) {
       if (unwrap(this.gameState.generations.length) > 0) {
-        this.timer.countdown(15, () => { this.outOfTime() });
+        this.timer.countdown(23000, 2000, () => { this.outOfTime() });
       }
     } else if (s === State.Voting) {
-      this.timer.countdown(20, () => { this.outOfTime() });
+      this.timer.countdown(18000, 2000, () => { this.outOfTime() });
     } else {
       this.timer.unset();
     }

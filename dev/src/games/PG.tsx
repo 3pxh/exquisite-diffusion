@@ -79,7 +79,7 @@ const PG: Component<Room & {engine: PromptGuessGameEngine}> = (props) => {
       </Show>
 
       <Show when={playerState() !== State.Lobby}>
-        <div class="PG-timer" style={`width: ${props.engine.timer.percentRemaining() > 0 ? props.engine.timer.percentRemaining() : 100}%`}></div>
+        <div class="PG-timer" style={`width: ${props.engine.timer.percentRemaining() > 0 ? Math.min(props.engine.timer.percentRemaining(), 100) : 100}%`}></div>
         <div class="PG-Game">
           <div class="PG-Game-Container">
             <div class="PG-Game-Left">
