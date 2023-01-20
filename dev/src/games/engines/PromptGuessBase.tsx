@@ -67,7 +67,8 @@ type GameState = {
   scores: Record<Player["id"], PGScore>,
   round: number,
   version: "1.0.0",
-} & TimerSerial
+  timer: TimerSerial,
+}
 
 function initState(): GameState {
   return {
@@ -78,7 +79,7 @@ function initState(): GameState {
     scores: {},
     round: 1,
     version: "1.0.0",
-    ...Timer.initState()
+    timer: Timer.initState()
   }
 }
 
@@ -115,7 +116,7 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
         this.setPlayerState(newState.roomState);
       }
       this.setGameState(newState);
-      this.timer.setFromSerial(newState, this.outOfTime);
+      this.timer.setFromSerial(newState.timer, this.outOfTime);
     });
     
     super.registerHostReducer((gs: GameState, m: Message) => {
@@ -156,6 +157,13 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
     });
     super.updatePlayer({
       state: State.Lobby,
+    });
+  }
+
+  toggleTimer = (isEnabled: boolean) => {
+    this.timer.setEnabled(isEnabled);
+    this.mutateAndBroadcastGameState((gs) => {
+      gs.timer = this.timer.serialize();
     });
   }
 
@@ -235,10 +243,7 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
     this.setPlayerState(s);
     super.mutateAndBroadcastGameState((gs: GameState) => {
       gs.roomState = s;
-      // TODO: Make this generic.
-      const t = this.timer.serialize();
-      gs.start = t.start;
-      gs.end = t.end;
+      gs.timer = this.timer.serialize();
       if (mutation) {
         mutation(gs);
       }
