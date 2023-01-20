@@ -77,7 +77,7 @@ const JoinGame: Component<{chooseGame: (g: GameType, roomId: number, shortcode: 
               id="name"
               name="name"
               class="JoinGame-input"
-              placeholder="happy_ewok"
+              placeholder=""
               onChange={(e) => setName(e.currentTarget.value)}
             />
           </div>

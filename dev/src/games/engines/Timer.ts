@@ -81,22 +81,21 @@ export class Timer {
     this.start = new Date(s.start);
     this.end = new Date(s.end);
     const now = new Date();
-    console.log("end, now", this.end, now, now < this.end)
     if (this.end && now < this.end) {
       this.timeout = window.setTimeout(() => { callback() }, this.end.getTime() - now.getTime());
       this.startAnimation();
     }
   }
 
-  countdown(seconds: number, callback: () => void) {
+  countdown(durationMs: number, delayMs: number, callback: () => void) {
     if (this.timeout) {
       window.clearTimeout(this.timeout);
     }
-    console.log("countdown!")
     this.start = new Date();
     this.end = new Date();
-    this.end.setSeconds(this.end.getSeconds() + seconds);
-    this.timeout = window.setTimeout(() => { callback() }, seconds * 1000);
+    this.start.setTime(this.start.getTime() + delayMs)
+    this.end.setTime(this.end.getTime() + durationMs + delayMs);
+    this.timeout = window.setTimeout(() => { callback() }, durationMs + delayMs);
     this.startAnimation();
   }
 
