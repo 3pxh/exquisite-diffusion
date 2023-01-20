@@ -1,6 +1,7 @@
 import { Component, createSignal, Switch, Match } from 'solid-js'
 import { useAuth, AuthType } from "./AuthProvider";
 import AuthSelection from './AuthSelection'
+import faviconUrl from './assets/favicon.png'
 
 import Chatroom from './Chatroom';
 
@@ -12,6 +13,7 @@ import PG from './games/PG'
 import JoinGame from './JoinGame'
 import GameSelection from './GameSelection'
 import { GameType } from './GameTypes'
+
 
 // TODO: merge this "Room" concept with the one in games/engines/EngineBase.ts
 interface Room {
@@ -98,7 +100,7 @@ const App: Component = () => {
 
         <Match when={authState() === AuthType.EMAIL}>
           <div class="Header-User">
-            <img src="/src/assets/favicon.png" height="32" style="margin-right:10px;" />
+            <img src={faviconUrl} height="32" style="margin-right:10px;" />
             Three Pixel Heart | 
             Logged in as {session()?.user.email}
             {/* | (logout?) */}
