@@ -222,13 +222,13 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
 
   setHostState(s: State, mutation?: (gs: GameState) => void) {
     if (s === State.WritingPrompts) {
-      this.timer.countdown(23000, 2000, () => { this.outOfTime() });
+      this.timer.countdown(35000, 2000, () => { this.outOfTime() });
     } else if (s === State.CreatingLies) {
       if (unwrap(this.gameState.generations.length) > 0) {
-        this.timer.countdown(23000, 2000, () => { this.outOfTime() });
+        this.timer.countdown(35000, 2000, () => { this.outOfTime() });
       }
     } else if (s === State.Voting) {
-      this.timer.countdown(18000, 2000, () => { this.outOfTime() });
+      this.timer.countdown(25000, 2000, () => { this.outOfTime() });
     } else {
       this.timer.unset();
     }
