@@ -453,8 +453,87 @@ input {
 .PG-Game-Right {
   display: flex;
   flex-direction: column;
+  flex-grow: 1;
+  max-width: 600px;
   padding: 0 1rem;
 }
 .PG-Game-Right li button {
   width: 300px;
+}
+
+.PG-VoteList li {
+  margin: 10px 0;
+}
+
+.PG-Guess {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  margin: 5px 0;
+  padding: 2px;
+  width: 100%;
+}
+.PG-Guess img {
+  border-radius: 50%;
+}
+.PG-Truth {
+  border: 1px solid white;
+}
+.PG-Lie {
+  border: 1px solid rgba(255,255,255,.2);
+}
+.PG-Guess .Author {
+  height: 64px;
+  width: 64px;
+}
+.PG-Truth .Author {
+  opacity: 1;
+}
+.PG-Lie .Author {
+  opacity: .2;
+}
+.PG-Guess .Result {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  width: 100%;
+}
+.PG-Guess .Caption {
+  flex-grow: 1;
+  padding: 4px;
+  height: 100%;
+  width: 100%;
+}
+.PG-Guess .Guessers {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  width: 90px;
+}
+.PG-Guess .Guessers img {
+  border-radius: 50%;
+  height: 28px;
+  margin: 2px;
+  width: 28px;
+}
+
+.Scoreboard {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.Scoreboard-Avatar {
+  border-radius: 50%;
+  height: 32px;
+  margin: 3px 10px;
+  width: 32px;
+}
+
+.Scoreboard-Row {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  width: 220px;
 }
