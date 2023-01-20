@@ -97,7 +97,12 @@ const App: Component = () => {
         </Match>
 
         <Match when={authState() === AuthType.EMAIL}>
-          <p>Logged in as {session()?.user.email}</p>
+          <div class="Header-User">
+            <img src="/src/assets/favicon.png" height="32" style="margin-right:10px;" />
+            Three Pixel Heart | 
+            Logged in as {session()?.user.email}
+            {/* | (logout?) */}
+          </div>
           <GameSelection chooseGame={chooseGame} />
         </Match>
       </Switch>

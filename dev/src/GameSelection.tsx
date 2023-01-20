@@ -74,18 +74,26 @@ const GameSelection: Component<{chooseGame: (g: GameType, roomId: number, shortc
       "Creating room..." :
       <>
       <div class="GameSelection-Left">
-      <h1>Choose a game:</h1>
-      <For each={games}>{(g) => {
-        return (<>
-        <div classList={{
-          "GameSelection-GameTitle": true,
-          "GameSelection--Selected": g.type === gameType(),
-          "GameSelection-JoinOption": g.type === null,
-        }} onmouseenter={() => {setGameType(g.type)}}>
-          {g.title}
+        <h1>Choose a game:</h1>
+        <For each={games}>{(g) => {
+          return (<>
+          <div classList={{
+            "GameSelection-GameTitle": true,
+            "GameSelection--Selected": g.type === gameType(),
+            "GameSelection-JoinOption": g.type === null,
+          }} onmouseenter={() => {setGameType(g.type)}}>
+            {g.title}
+          </div>
+          </>)
+        }}</For>
+        <div class="GameSelection-LeftFooter">
+          Feedback, Community, Games!<br/>
+          <ul>
+            <li><a href="https://discord.gg/XwfUZTjS2p" target="_blank">Join the 3PXH Discord!</a></li>
+            <li><a href="https://forms.gle/71FD149ktFhyYKT1A" target="_blank">Send feedback</a></li>
+            <li><a href="https://www.facebook.com/ThreePixelHeart/" target="_blank">Do people still use Facebook?</a></li>
+          </ul>
         </div>
-        </>)
-      }}</For>
       </div>
       <div class="GameSelection-Right">
         <Show when={gameType() === null}>
