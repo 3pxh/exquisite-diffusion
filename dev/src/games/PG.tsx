@@ -72,6 +72,15 @@ const PG: Component<Room & {engine: PromptGuessGameEngine}> = (props) => {
                   </ul>
                 }
 
+                <p class="GameLobby-headline" style="margin-top:10px;">
+                  About scoring:
+                </p>
+                <ul>
+                  <li>+1000 points when someone guesses your truth</li>
+                  <li>+1000 points for each truth you guess</li>
+                  <li>+500 points when someone guesses your lie</li>
+                </ul>
+
                 <Show when={props.engine.isHost}>
                   <button style="margin:10px; padding:10px 30px;" onclick={() => props.engine.startGame(inputVal())}><h2>Start Game!</h2></button>
                 </Show>
