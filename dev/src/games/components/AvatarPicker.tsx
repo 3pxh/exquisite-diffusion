@@ -2,31 +2,37 @@ import { Component, createEffect, createSignal, Switch, Match, Show, For } from 
 import { supabase } from '../../supabaseClient'
 import { Player } from '../engines/PromptGuessBase'
 
+const shuffle = <T,>(A: T[]) => {
+  return A.map(value => ({ value, sort: Math.random() }))
+          .sort((a, b) => a.sort - b.sort)
+          .map(({ value }) => value);
+}
 
 const AvatarPicker: Component<{players: Player[], setAvatarUrl: (url: string) => void}> = (props) => {
-  const FOLDER = 'animals'
-  const BUCKET = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/avatars/${FOLDER}`
-  const [avatars, setAvatars] = createSignal<{name: string}[]>([])
+  const FOLDERS = ['animals', 'grove']
+  const BUCKET = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/avatars/`
+  const [avatars, setAvatars] = createSignal<{name: string, folder: string}[]>([])
   const [claimedAvatars, setClaimedAvatars] = createSignal<Set<string>>(new Set())
 
-  const formatUrl = (name: string) => {
-    return `${BUCKET}/${name}`;
+  const formatUrl = (name: string, folder: string) => {
+    return `${BUCKET}/${folder}/${name}`;
   }
 
-  supabase
-    .storage
-    .from('avatars')
-    .list(FOLDER, {
-      limit: 100,
-      offset: 0,
-      sortBy: { column: 'name', order: 'asc' },
-    }).then(({ data, error }) => {
-      setAvatars(data?.slice(1) as {name: string}[]);
-      // Want to assign them the first untaken one, but players load slow.
-      // Settle for a random one, and collisions be damned for now.
-      const pick = data?.slice(1)[Math.floor(Math.random() * data?.slice(1).length)];
-      props.setAvatarUrl(formatUrl(pick?.name ?? ''));
-    })
+  FOLDERS.forEach(f => {
+    supabase
+      .storage
+      .from('avatars')
+      .list(f, {
+        limit: 100,
+        offset: 0,
+        sortBy: { column: 'name', order: 'asc' },
+      }).then(({ data, error }) => {
+        const newAvatars = data?.slice(1).map(d => { return {name: d.name ?? '', folder: f} });
+        setAvatars(shuffle([...avatars(), ...newAvatars!]));
+        const pick = avatars()[Math.floor(Math.random() * Math.min(20, avatars().length))];
+        props.setAvatarUrl(formatUrl(pick?.name ?? '', pick.folder));
+      })
+  })
 
   createEffect(() => {
     setClaimedAvatars(new Set(props.players.map(p => p.avatar ?? '')));
@@ -34,8 +40,8 @@ const AvatarPicker: Component<{players: Player[], setAvatarUrl: (url: string) =>
 
   return (
     <div style="display: flex; flex-direction: row; max-width:340px; flex-wrap: wrap; background:rgba(0,0,0,.05);">
-      <For each={avatars()}>{(a, i) => {
-        const url = formatUrl(a.name);
+      <For each={avatars().slice(0,20)}>{(a, i) => {
+        const url = formatUrl(a.name, a.folder);
         const baseStyle = `margin:2px; border-radius:50%;`
         const claimedStyle = `opacity: .2; ${baseStyle}`;
         return <>
