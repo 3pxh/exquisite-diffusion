@@ -8,7 +8,7 @@ import JoinGame from './JoinGame'
 const GAMES = [
   {type: GameType.PGImage, title: "Farsketched", description: "The original AI prompt guessing game!", imageFolder: "far-sketched-landscapes"},
   {type: GameType.PGGisticle, title: "Gisticle", description: "The best way to write listicles.", imageFolder: "gisticle-g"},
-  {type: GameType.PG, title: "What's Past is Prologue", description: "Begin a story and see where it goes."},
+  {type: GameType.PG, title: "Past is Prologue", description: "Begin a story and see where it goes."},
   {type: GameType.Hadron64, title: "Hadron 64", description: "Race to match patterns!"},
   {type: null, title: "Join a game", description: ""},
 
@@ -67,15 +67,13 @@ const GameDetails: Component<{game: GameType}> = (props) => {
 const GameSelection: Component<{chooseGame: (g: GameType, roomId: number, shortcode: string, isHost?: boolean) => void}> = (props) => {
   const { session, setPlayerHandle } = useAuth();
   const [isCreatingRoom, setIsCreatingRoom] = createSignal<boolean>(false);
-  const [gameType, setGameType] = createSignal<GameType | null>(GameType.PG);
+  const [gameType, setGameType] = createSignal<GameType | null>(GameType.PGImage);
   const [hostName, setHostName] = createSignal<string>('');
 
   const setNameAndChoose = async () => {
     if (hostName() !== '') {
       setPlayerHandle(hostName());
     }
-    // TODO: host is not a player if they don't choose a name.
-    // Perhaps the games should interpret this based on useAuth()'s playerHandle()
     const g = gameType();
     if (g) {
       createRoom(g);
@@ -121,18 +119,26 @@ const GameSelection: Component<{chooseGame: (g: GameType, roomId: number, shortc
       "Creating room..." :
       <>
       <div class="GameSelection-Left">
-      <h1>Choose a game:</h1>
-      <For each={GAMES}>{(g) => {
-        return (<>
-        <div classList={{
-          "GameSelection-GameTitle": true,
-          "GameSelection--Selected": g.type === gameType(),
-          "GameSelection-JoinOption": g.type === null,
-        }} onmouseenter={() => {setGameType(g.type)}}>
-          {g.title}
+        <h1>Choose a game</h1>
+        <For each={GAMES}>{(g) => {
+          return (<>
+          <div classList={{
+            "GameSelection-GameTitle": true,
+            "GameSelection--Selected": g.type === gameType(),
+            "GameSelection-JoinOption": g.type === null,
+          }} onmouseenter={() => {setGameType(g.type)}}>
+            {g.title}
+          </div>
+          </>)
+        }}</For>
+        <div class="GameSelection-LeftFooter">
+          Join us in making the fun!
+          <ul>
+            <li><a href="https://discord.gg/XwfUZTjS2p" target="_blank">Join the Discord</a></li>
+            <li><a href="https://forms.gle/71FD149ktFhyYKT1A" target="_blank">Send feedback</a></li>
+            <li>Contact: g@3pxh.com</li>
+          </ul>
         </div>
-        </>)
-      }}</For>
       </div>
       <div class="GameSelection-Right">
         <Show when={gameType() === null}>

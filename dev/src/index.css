@@ -479,6 +479,7 @@ input {
   flex-direction: column;
   flex-grow: 1;
   max-width: 600px;
+  min-width: 475px;
   padding: 0 1rem;
 }
 .PG-Game-Right li button {
@@ -600,7 +601,7 @@ input {
   box-sizing: border-box;
   cursor: pointer;
   font-size: 18pt;
-  font-weight: 800;
+  font-weight: 600;
   padding: .5rem 1rem;
 }
 .GameSelection-GameTitle.GameSelection-JoinOption {
