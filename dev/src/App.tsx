@@ -95,6 +95,13 @@ const App: Component = () => {
               <p><strong>Join a room below!</strong></p>
             </header>
             <JoinGame chooseGame={chooseGame} />
+
+            <h3>Join us in making the fun!</h3>
+            <ul>
+              <li><a href="https://discord.gg/XwfUZTjS2p" target="_blank">Join the Discord</a></li>
+              <li><a href="https://forms.gle/71FD149ktFhyYKT1A" target="_blank">Send feedback</a></li>
+              <li>Contact: g@3pxh.com</li>
+            </ul>
           </div>
         </Match>
 
