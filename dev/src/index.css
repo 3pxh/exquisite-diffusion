@@ -433,6 +433,7 @@ input {
 .PG-timer {
   height: 10px;
   background-color: white;
+  flex-shrink: 0;
   width: 100%;
 }
 .PG-Game {
@@ -605,7 +606,7 @@ input {
   padding: .5rem 1rem;
 }
 .GameSelection-GameTitle.GameSelection-JoinOption {
-  color: rgb(82, 255, 197);
+  color: rgb(255, 255, 82);
 }
 .GameSelection--Selected, .GameSelection-GameTitle.GameSelection-JoinOption.GameSelection--Selected {
   background-color: var(--bg-color);

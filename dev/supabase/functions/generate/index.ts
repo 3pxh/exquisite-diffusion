@@ -33,8 +33,6 @@ serve(async (req) => {
       responseData = await serveImage(supabaseClient, r);
     } else if (r.generationType === "text") {
       responseData = await serveText(supabaseClient, r);
-    } else if (r.generationType === "list") {
-      responseData = await serveList(supabaseClient, r);
     }
 
     // TODO: Note the usage on the room owner's credit?
@@ -51,16 +49,17 @@ serve(async (req) => {
   }
 })
 
-async function serveList(supabaseClient:any, req:any) {
+async function serveText(supabaseClient:any, req:any) {
   console.log("list prompt:", req.prompt);
   const openaiKey = Deno.env.get('OPENAI_API_KEY');
   const apiUrl = 'https://api.openai.com/v1/completions';
+  const prompt = req.template.replace('$1', req.prompt);
   const res = await fetch(apiUrl, {
     headers: { Authorization: 'Bearer ' + openaiKey, "Content-Type": "application/json" },
     method: 'POST',
     body: JSON.stringify({
       "model": "text-davinci-003",
-      "prompt": `${req.gisticlePrefix} ${req.prompt}, don't explain why.\n\n`,
+      "prompt": prompt,
       "temperature": 0.7,
       "max_tokens": 256,
       "top_p": 1,
@@ -79,16 +78,16 @@ async function serveList(supabaseClient:any, req:any) {
     user_id: req.player.uuid || req.player.id,
     data: {
       type: "Generation",
-      generationType: "list",
+      generationType: "text",
       player: req.player,
-      gisticlePrefix: req.gisticlePrefix,
+      template: req.template,
       prompt: req.prompt,
       text: completion,
       // This is temporary while migrating to the new engine. TODO: delete the entries above.
       generation: {
         player: req.player,
-        generationType: "list",
-        gisticlePrefix: req.gisticlePrefix,
+        generationType: "text",
+        template: req.template,
         prompt: req.prompt,
         text: completion,
       }
@@ -98,7 +97,7 @@ async function serveList(supabaseClient:any, req:any) {
   return { data, error, status };
 }
 
-async function serveText(supabaseClient:any, req:any) {
+async function serveTextsynth(supabaseClient:any, req:any) {
   console.log("text prompt:", req.prompt)
   const textsynthKey = Deno.env.get('TEXTSYNTH_API_KEY');
   const apiUrl = 'https://api.textsynth.com';
