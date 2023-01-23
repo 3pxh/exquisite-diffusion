@@ -29,6 +29,7 @@ type Generation = {
   text?: string,
   url?: string,
   gisticlePrefix?: string,
+  category?: string,
 }
 
 export enum State {
@@ -433,20 +434,36 @@ export class PGGisticleEngine extends PromptGuessGameEngine {
 
 export class Tresmojis extends PromptGuessGameEngine {
   static TEMPLATE = "List 3 emojis to describe \"$1\" (don't explain why)\n\n"
+  static CATEGORIES = [
+    "an abstract noun",
+    "an adjective",
+    "a memory",
+    "a person's name",
+    "anything!",
+  ]
+  category: Accessor<string>
+  setCategory: Setter<string>
 
   constructor(init: Room) {
     super({...init});
     this.gameName = "Tresmojis";
+    [this.category, this.setCategory] = createSignal<string>(chooseOne(Tresmojis.CATEGORIES))
   }
 
+  setPlayerState(s: State) {
+    if (this.player().state !== s && s === State.WritingPrompts) {
+      this.setCategory(chooseOne(Tresmojis.CATEGORIES));
+    }
+    super.setPlayerState(s);
+  }
 
   renderPrompt(): JSX.Element {
-    return <h2>List 3 emojis to describe...</h2>
+    return <h2>Write {this.category()}</h2>
   }
 
   renderGenerationPrompt(g: Generation) {
     return <>
-      <h3>List 3 emojis to describe ___</h3>
+      <h3>List 3 emojis to describe [{g.category}]</h3>
     </>
   }
 
@@ -457,7 +474,6 @@ export class Tresmojis extends PromptGuessGameEngine {
   }
 
   async generateApi(prompt: string) {
-    console.log("GENERATE TRESMOJI!")
     const { data, error } = await supabase.functions.invoke("generate", {
       body: JSON.stringify({
         room: this.roomId,
@@ -465,6 +481,7 @@ export class Tresmojis extends PromptGuessGameEngine {
         prompt: prompt,
         generationType: "text",
         template: Tresmojis.TEMPLATE,
+        category: this.category(),
       })
     });
     return {data, error}
