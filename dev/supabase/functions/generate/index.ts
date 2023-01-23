@@ -90,6 +90,7 @@ async function serveText(supabaseClient:any, req:any) {
         template: req.template,
         prompt: req.prompt,
         text: completion,
+        category: req.category,
       }
     }
   });
