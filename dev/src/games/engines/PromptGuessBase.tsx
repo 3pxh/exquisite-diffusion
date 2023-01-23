@@ -305,6 +305,7 @@ export class PromptGuessGameEngine extends EngineBase<GameState, Message, Player
         player: this.player(),
         prompt: prompt,
         generationType: "text",
+        template: "$1"
       })
     });
     return {data, error}
@@ -422,8 +423,48 @@ export class PGGisticleEngine extends PromptGuessGameEngine {
         room: this.roomId,
         player: this.player(),
         prompt: prompt,
-        generationType: "list",
-        gisticlePrefix: this.prefix(),
+        generationType: "text",
+        template: `${this.prefix()} $1, don't explain why \n\n`,
+      })
+    });
+    return {data, error}
+  }
+}
+
+export class Tresmojis extends PromptGuessGameEngine {
+  static TEMPLATE = "List 3 emojis to describe \"$1\" (don't explain why)\n\n"
+
+  constructor(init: Room) {
+    super({...init});
+    this.gameName = "Tresmojis";
+  }
+
+
+  renderPrompt(): JSX.Element {
+    return <h2>List 3 emojis to describe...</h2>
+  }
+
+  renderGenerationPrompt(g: Generation) {
+    return <>
+      <h3>List 3 emojis to describe ___</h3>
+    </>
+  }
+
+  renderGeneration(g: Generation) {
+    return <>
+      <span style="font-size:64pt;">{g.text?.trim().replaceAll(',', '').replaceAll(' ', '').replace(/[0-9]/g, '')}</span>
+    </>
+  }
+
+  async generateApi(prompt: string) {
+    console.log("GENERATE TRESMOJI!")
+    const { data, error } = await supabase.functions.invoke("generate", {
+      body: JSON.stringify({
+        room: this.roomId,
+        player: this.player(),
+        prompt: prompt,
+        generationType: "text",
+        template: Tresmojis.TEMPLATE,
       })
     });
     return {data, error}

@@ -8,6 +8,7 @@ import JoinGame from './JoinGame'
 const GAMES = [
   {type: GameType.PGImage, title: "Farsketched", description: "The original AI prompt guessing game!", imageFolder: "far-sketched-landscapes"},
   {type: GameType.PGGisticle, title: "Gisticle", description: "The best way to write listicles.", imageFolder: "gisticle-g"},
+  {type: GameType.Tresmojis, title: "Tresmojis", description: "What made the emojis?"},
   {type: GameType.PG, title: "Past is Prologue", description: "Begin a story and see where it goes."},
   {type: GameType.Hadron64, title: "Hadron 64", description: "Race to match patterns!"},
   {type: null, title: "Join a game", description: ""},
