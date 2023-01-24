@@ -80,6 +80,7 @@ const App: Component = () => {
 
 	return (
     <div class="App">
+      <p>Netify build test</p>
       <Switch>
         <Match when={session() === null}>
           <AuthSelection />
