@@ -30,6 +30,7 @@ type Generation = {
   url?: string,
   gisticlePrefix?: string,
   category?: string,
+  template?: string,
 }
 
 export enum State {
@@ -408,7 +409,7 @@ export class PGGisticleEngine extends PromptGuessGameEngine {
 
   renderGenerationPrompt(g: Generation) {
     return <>
-      <h3>{g.gisticlePrefix} ___</h3>
+      <h3>{PGGisticleEngine.TEMPLATES.find(t => g.template!.match(t))} ___</h3>
     </>
   }
 
