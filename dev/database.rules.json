@@ -1,0 +1,10 @@
+{
+  /* Visit https://firebase.google.com/docs/database/security to learn more about security rules. 
+  
+  TODO: Lock this down! Full access is just for testing and getting started.
+  */
+  "rules": {
+    ".read": true,
+    ".write": true
+  }
+}

@@ -1,4 +1,7 @@
 import { Component, createSignal, Switch, Match } from 'solid-js'
+import { ref, set } from "firebase/database";
+import { db } from './Firebase';
+
 import { useAuth, AuthType } from "./AuthProvider";
 import AuthSelection from './AuthSelection'
 import faviconUrl from './assets/favicon.png'
@@ -55,6 +58,11 @@ const App: Component = () => {
   const [engine, setEngine] = createSignal<PromptGuessGameEngine | null>(null);
 
   const chooseGame = (g: GameType, roomId: number, shortcode: string, isHost?: boolean) => {
+    set(ref(db, 'hello/wurrrld/'), {
+      original: "hoorah"
+    });
+
+    
     if (g === GameType.PG || g === GameType.PGImage || g === GameType.PGGisticle || g === GameType.Tresmojis) {
       const engines = {
         [GameType.PG]: PromptGuessGameEngine,

@@ -7,7 +7,7 @@
 		"dev": "vite",
 		"build": "vite build && rm ../index.html && rm -rf ../assets && mv dist/index.html ../index.html && mv dist/assets/ ../assets",
 		"build-netlify": "vite build",
-    "serve": "vite preview",
+		"serve": "vite preview",
 		"format": "prettier --write \"src/*.{js,json,ts,tsx,jsx}\""
 	},
 	"license": "MIT",
@@ -19,6 +19,7 @@
 	},
 	"dependencies": {
 		"@supabase/supabase-js": "^2.0.4",
+		"firebase": "^9.16.0",
 		"solid-js": "^1.4.7"
 	}
 }
