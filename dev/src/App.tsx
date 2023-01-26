@@ -1,6 +1,6 @@
 import { Component, createSignal, Switch, Match } from 'solid-js'
-import { ref, set } from "firebase/database";
-import { db } from './Firebase';
+import { ref, set, push, child } from "firebase/database";
+import { db, message } from './Firebase';
 
 import { useAuth, AuthType } from "./AuthProvider";
 import AuthSelection from './AuthSelection'
@@ -58,9 +58,12 @@ const App: Component = () => {
   const [engine, setEngine] = createSignal<PromptGuessGameEngine | null>(null);
 
   const chooseGame = (g: GameType, roomId: number, shortcode: string, isHost?: boolean) => {
-    set(ref(db, 'hello/wurrrld/'), {
+    set(ref(db, 'hello/testing/'), {
       original: "hoorah"
     });
+    
+    // Generates a new message:
+    message({name: "TestMessage", original: "yeeee", data: {yeah: "okay"}})
 
     
     if (g === GameType.PG || g === GameType.PGImage || g === GameType.PGGisticle || g === GameType.Tresmojis) {

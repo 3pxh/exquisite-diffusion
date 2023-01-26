@@ -2,6 +2,7 @@ import { Component, createSignal, Switch, Match } from 'solid-js'
 import { supabase } from './supabaseClient'
 import { useAuth } from "./AuthProvider";
 import { GameType, GameTypeMap, GameTypeString } from './GameTypes'
+import { message } from './Firebase';
 
 enum JoinState {
   ENTERING_CODE,
@@ -18,6 +19,10 @@ const JoinGame: Component<{chooseGame: (g: GameType, roomId: number, shortcode: 
   const [error, setError] = createSignal<string>("");
 
   const joinRoom = async () => {
+    message({name: "JoinRoom", shortcode: shortcode()});
+    // How does the client get a notification back?
+    // Do they watch their own participation records to see a game id come into existence?
+
     setPlayerHandle(name());
     setState(JoinState.JOINING);
     const { data, error } = await supabase.functions.invoke("joinroom", {
