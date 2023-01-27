@@ -624,3 +624,7 @@ input {
 .GameSelection-Start button {
   margin: 0 10px;
 }
+
+.SocialLinks a {
+  color:rgb(255, 253, 115);
+}
