@@ -99,7 +99,7 @@ const App: Component = () => {
             <JoinGame chooseGame={chooseGame} />
 
             <h3>Join us in making the fun!</h3>
-            <ul>
+            <ul class="SocialLinks">
               <li><a href="https://www.patreon.com/artifice_games" target="_blank">Contribute via Patreon</a></li>
               <li><a href="https://discord.gg/XwfUZTjS2p" target="_blank">Join the Discord</a></li>
               <li><a href="https://forms.gle/71FD149ktFhyYKT1A" target="_blank">Send feedback</a></li>
